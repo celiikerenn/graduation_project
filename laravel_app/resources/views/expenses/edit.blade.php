@@ -24,7 +24,7 @@
         </div>
 
         <div class="form-group">
-            <label for="amount">Amount (₺)</label>
+            <label for="amount">Amount ({{ $currencySymbol }})</label>
             <input type="number" id="amount" name="amount" step="0.01" min="0.01"
                    value="{{ old('amount', $expense['amount']) }}" required>
             @error('amount') <div class="text-danger">{{ $message }}</div> @enderror

@@ -2,13 +2,7 @@
 #
 # Kurulum:  python -m venv .venv
 #            .\.venv\Scripts\pip install -r requirements.txt
-#
-# Fiş OCR (Tesseract): Harici yapay zeka API’si yok; Python tarafında pytesseract
-# yerel Tesseract binary’sini çağırır. Windows’ta kurulum:
-#   https://github.com/UB-Mannheim/tesseract/wiki
-# Türkçe + İngilizce: kurulumda "Additional language data" veya tessdata’ya tur.traineddata ekleyin.
-# İsteğe bağlı: .env içinde TESSERACT_CMD=C:\...\tesseract.exe
-#
+
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0

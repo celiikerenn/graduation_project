@@ -5,8 +5,8 @@
 @push('styles')
 <style>
     .receipt-upload {
-        border: 1px dashed rgba(74, 222, 128, 0.45);
-        background: rgba(34, 197, 94, 0.08);
+        border: 1px dashed rgba(37, 99, 235, 0.35);
+        background: rgba(37, 99, 235, 0.05);
         border-radius: 12px;
         padding: 20px;
         text-align: center;
@@ -19,8 +19,8 @@
         letter-spacing: 0 !important;
     }
     .receipt-upload:hover {
-        border-color: rgba(74, 222, 128, 0.85);
-        background: rgba(34, 197, 94, 0.14);
+        border-color: rgba(37, 99, 235, 0.55);
+        background: rgba(37, 99, 235, 0.09);
     }
 </style>
 @endpush
@@ -31,7 +31,7 @@
     Capture a new spending record with category, amount and date details.
 </p>
 <div class="card" style="margin-bottom:1rem;">
-    <h2 style="margin-top:0; margin-bottom:0.75rem; font-size:1.1rem;">Auto-add from receipt (Tesseract OCR)</h2>
+    <h2 style="margin-top:0; margin-bottom:0.75rem; font-size:1.1rem;">Auto-add from receipt (AI)</h2>
     <form method="POST" action="{{ route('expenses.ocr.store') }}" enctype="multipart/form-data">
         @csrf
         <div class="form-group">
@@ -39,16 +39,31 @@
             <input type="file" id="receipt" name="receipt" accept="image/*" required style="display:none;">
             <label for="receipt" id="receipt-upload-label" class="receipt-upload">Click to upload receipt</label>
             <div style="font-size:0.82rem; color:var(--muted); margin-top:0.25rem;">
-                Upload a clear receipt photo. Text is read on the server with Tesseract (Python); store, amount, date and category are detected automatically.
+                Upload a clear receipt photo. Text is read on the server with AI; store, amount, date and category are detected automatically.
             </div>
             @error('receipt') <div class="text-danger">{{ $message }}</div> @enderror
         </div>
         <button type="submit" class="btn btn-primary">
-            Parse receipt and save
+            Extract from receipt
         </button>
     </form>
 </div>
 <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:0.9rem; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
+            <button type="submit" form="fixed-expense-form" class="btn btn-secondary">Add this month's fixed expenses</button>
+            <label style="display:flex; align-items:center; gap:0.45rem; cursor:default; margin:0;">
+                <input type="checkbox" id="is_fixed_expense" value="1" disabled {{ !empty($autoFixedChecked) ? 'checked' : '' }}>
+                <span style="font-size:0.86rem; color:var(--muted);">Added for this month</span>
+            </label>
+        </div>
+        <form method="POST" action="{{ route('expenses.fixed-monthly.store') }}" style="margin:0;" id="fixed-expense-form">
+            @csrf
+        </form>
+    </div>
+    <div style="margin:-0.15rem 0 0.85rem; color:var(--muted); font-size:0.85rem;">
+        Fixed templates are managed from <a href="{{ route('profile.show') }}" style="color:var(--acc); font-weight:600; text-decoration:underline;">Settings</a>.
+    </div>
     <form method="POST" action="{{ route('expenses.store') }}">
         @csrf
         <div class="form-group">
@@ -65,7 +80,7 @@
             <label for="amount">Amount</label>
             <div style="display:flex; align-items:stretch; gap:0.35rem;">
                 <div style="display:flex; align-items:center; justify-content:center; padding:0 0.65rem; background:var(--surface2); border-radius:8px; border:1px solid var(--border2); font-size:0.9rem; color:var(--txt);">
-                    ₺
+                    {{ $currencySymbol }}
                 </div>
                 <input
                     type="number"
@@ -108,11 +123,23 @@
 (() => {
     const input = document.getElementById('receipt');
     const label = document.getElementById('receipt-upload-label');
-    if (!input || !label) return;
-    input.addEventListener('change', () => {
-        const file = input.files && input.files[0];
-        label.textContent = file ? file.name : 'Click to upload receipt';
-    });
+    if (input && label) {
+        input.addEventListener('change', () => {
+            const file = input.files && input.files[0];
+            label.textContent = file ? file.name : 'Click to upload receipt';
+        });
+    }
+
+    const fixedCheckbox = document.getElementById('is_fixed_expense');
+    const fixedForm = document.getElementById('fixed-expense-form');
+    if (!fixedCheckbox) return;
+
+    // Kullanıcı checkbox'ı elle değiştiremez; sadece fixed gider butonu işaretler.
+    if (fixedForm) {
+        fixedForm.addEventListener('submit', () => {
+            fixedCheckbox.checked = true;
+        });
+    }
 })();
 </script>
 @endpush

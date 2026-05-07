@@ -10,7 +10,7 @@
         @csrf
 
         <div class="form-group">
-            <label for="monthly_budget">Monthly Budget (₺)</label>
+            <label for="monthly_budget">Monthly Budget ({{ $currencySymbol }})</label>
             <input
                 id="monthly_budget"
                 type="number"

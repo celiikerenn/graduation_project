@@ -4,25 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Personal Finance Tracker') - {{ config('app.name', 'Finance Tracker') }}</title>
+    <script>(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+    <title>@yield('title', 'Home') - {{ config('app.name') }}</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
         :root {
-            --bg: #080d0b;
-            --surface: #141f1a;
-            --surface2: #1a2e26;
-            --border: rgba(74, 222, 128, 0.14);
-            --border2: rgba(74, 222, 128, 0.26);
-            --acc: #22c55e;
-            --acc2: #15803d;
-            --acc-light: rgba(34, 197, 94, 0.14);
-            --green: #4ade80;
-            --green-light: rgba(34, 197, 94, 0.14);
-            --red: #f87171;
-            --red-light: rgba(248, 113, 113, 0.12);
-            --txt: #ecfdf5;
-            --txt2: #a8d5c3;
-            --muted: #6b9088;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --surface2: #f8fafc;
+            --border: rgba(15, 23, 42, 0.08);
+            --border2: rgba(15, 23, 42, 0.12);
+            --acc: #2563eb;
+            --acc2: #3b82f6;
+            --acc-light: rgba(37, 99, 235, 0.1);
+            --green: #16a34a;
+            --green-light: rgba(22, 163, 74, 0.12);
+            --red: #dc2626;
+            --red-light: rgba(220, 38, 38, 0.1);
+            --txt: #0f172a;
+            --txt2: #334155;
+            --muted: #64748b;
         }
         * { box-sizing: border-box; }
 
@@ -37,9 +38,9 @@
             overflow: hidden;
             position: relative;
             background:
-                radial-gradient(820px 380px at 82% -4%, rgba(34, 197, 94, 0.1) 0%, transparent 74%),
-                radial-gradient(660px 320px at 10% 4%, rgba(21, 128, 61, 0.14) 0%, transparent 76%),
-                linear-gradient(180deg, #0c1210 0%, #080d0b 55%, #050807 100%);
+                radial-gradient(900px 420px at 82% -6%, rgba(59, 130, 246, 0.16) 0%, transparent 72%),
+                radial-gradient(680px 360px at 8% 8%, rgba(37, 99, 235, 0.08) 0%, transparent 76%),
+                linear-gradient(180deg, #ffffff 0%, #f1f5f9 48%, #e8edf4 100%);
         }
 
         #auth-canvas {
@@ -85,7 +86,7 @@
             line-height: 1.45;
         }
         .auth-typing #auth-typing-text {
-            color: #86efac;
+            color: var(--acc);
         }
         .auth-caret {
             display: inline-block;
@@ -103,7 +104,7 @@
             background: var(--surface);
             border-radius: 16px;
             border: 1px solid var(--border);
-            box-shadow: 0 4px 22px rgba(0,0,0,0.35), 0 16px 44px rgba(0,0,0,0.2), 0 1px 0 rgba(74,222,128,0.06) inset;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.08);
             padding: 20px 24px;
             overflow: hidden;
         }
@@ -112,7 +113,7 @@
             position: absolute;
             inset: 0 0 auto 0;
             height: 44px;
-            background: linear-gradient(180deg, rgba(34,197,94,0.08), rgba(34,197,94,0));
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.06), rgba(255, 255, 255, 0));
             pointer-events: none;
         }
 
@@ -133,14 +134,14 @@
             font-family: 'DM Sans', sans-serif;
         }
         .btn-primary {
-            background: linear-gradient(90deg, var(--acc), var(--acc2));
-            color: #052e16;
-            box-shadow: 0 8px 22px rgba(34, 197, 94, 0.28);
+            background: linear-gradient(90deg, #1d4ed8, var(--acc2));
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
         }
         .btn-primary:hover {
-            box-shadow: 0 10px 28px rgba(34, 197, 94, 0.38);
+            box-shadow: 0 8px 22px rgba(37, 99, 235, 0.35);
             transform: translateY(-1px);
-            filter: brightness(1.06);
+            filter: brightness(1.04);
         }
         .btn-secondary {
             background: var(--surface2);
@@ -148,7 +149,7 @@
             color: var(--txt2);
             font-weight: 500;
         }
-        .btn-secondary:hover { background: rgba(34, 197, 94, 0.1); border-color: var(--acc); color: var(--txt); }
+        .btn-secondary:hover { background: rgba(37, 99, 235, 0.07); border-color: rgba(37, 99, 235, 0.35); color: var(--acc); }
 
         .form-group { margin-bottom: 1rem; }
         .form-group label {
@@ -168,22 +169,22 @@
             width: 100%;
             font-family: 'DM Sans', sans-serif;
             transition: border-color 0.2s, box-shadow 0.2s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
         }
         .form-group input:focus {
             outline: none;
             border-color: var(--acc);
         }
         .form-group input:focus-visible {
-            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.55);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
         }
         .form-group input:focus:not(:focus-visible) {
             box-shadow: none;
         }
 
         .alert { padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1rem; font-size: 0.92rem; }
-        .alert-success { background: var(--green-light); color: #bbf7d0; border: 1px solid rgba(74, 222, 128, 0.35); }
-        .alert-error { background: var(--red-light); color: #fecaca; border: 1px solid rgba(248, 113, 113, 0.35); }
+        .alert-success { background: var(--green-light); color: #15803d; border: 1px solid rgba(22, 163, 74, 0.25); }
+        .alert-error { background: var(--red-light); color: #b91c1c; border: 1px solid rgba(220, 38, 38, 0.22); }
         .text-danger { color: var(--red); font-size: 0.85rem; margin-top: 0.25rem; }
 
         .toast-container {
@@ -194,7 +195,7 @@
             min-width: 240px; max-width: 360px;
             background: var(--surface); border-radius: 12px;
             border: 1px solid var(--border2);
-            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 10px 32px rgba(15, 23, 42, 0.1);
             padding: 0.72rem 0.9rem;
             color: var(--txt2);
             transform: translateY(24px); opacity: 0;
@@ -206,10 +207,109 @@
         @keyframes toastIn { to { transform: translateY(0); opacity: 1; } }
         @keyframes toastOut { to { transform: translateY(24px); opacity: 0; } }
 
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface2: #334155;
+            --border: rgba(241, 245, 249, 0.08);
+            --border2: rgba(241, 245, 249, 0.12);
+            --txt: #f1f5f9;
+            --txt2: #cbd5e1;
+            --muted: #94a3b8;
+            --acc-light: rgba(59, 130, 246, 0.18);
+            --green-light: rgba(34, 197, 94, 0.16);
+            --red-light: rgba(248, 113, 113, 0.14);
+        }
+        [data-theme="dark"] body.auth-page {
+            background: #0f172a;
+            color: var(--txt);
+        }
+        [data-theme="dark"] body.auth-page {
+            background-image: none;
+        }
+        [data-theme="dark"] .card {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 16px 40px rgba(0, 0, 0, 0.35);
+        }
+        [data-theme="dark"] .card::before {
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.1), transparent);
+        }
+        [data-theme="dark"] .auth-typing {
+            color: var(--txt2);
+        }
+        [data-theme="dark"] .form-group input {
+            background: var(--surface2);
+            color: var(--txt);
+            border-color: var(--border2);
+        }
+        [data-theme="dark"] .form-group label {
+            color: var(--txt2);
+        }
+        [data-theme="dark"] .btn-secondary {
+            background: var(--surface2);
+            border-color: var(--border2);
+            color: var(--txt2);
+        }
+        [data-theme="dark"] .alert-success {
+            color: #86efac;
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+        [data-theme="dark"] .alert-error {
+            color: #fca5a5;
+            border-color: rgba(248, 113, 113, 0.35);
+        }
+        [data-theme="dark"] .toast {
+            color: var(--txt2);
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+        }
+        .theme-icon--light { display: none !important; }
+        .theme-icon--dark { display: block !important; }
+        [data-theme="dark"] .theme-icon--dark { display: none !important; }
+        [data-theme="dark"] .theme-icon--light { display: block !important; }
+        .auth-theme-toggle {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 20;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            color: var(--muted);
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+            box-shadow: 0 2px 12px rgba(15, 23, 42, 0.1);
+        }
+        .auth-theme-toggle:hover {
+            background: var(--acc-light);
+            color: var(--acc);
+        }
+        [data-theme="dark"] .auth-theme-toggle {
+            background: rgba(30, 41, 59, 0.92);
+            color: #94a3b8;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+        }
+        [data-theme="dark"] .auth-theme-toggle:hover {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+        .auth-theme-toggle svg {
+            display: block;
+            width: 20px;
+            height: 20px;
+        }
+
     </style>
     @stack('styles')
 </head>
 <body class="auth-page">
+<button type="button" class="auth-theme-toggle" data-theme-toggle title="Toggle theme" aria-label="Toggle theme">
+    <svg class="theme-icon theme-icon--light" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    <svg class="theme-icon theme-icon--dark" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+</button>
 <canvas id="auth-canvas"></canvas>
 <div class="auth-content">
     @if(session('success'))
@@ -234,7 +334,14 @@
     const canvas = document.getElementById('auth-canvas');
     if (!canvas || !canvas.getContext) return;
     const ctx = canvas.getContext('2d');
-    const SYMBOL_POOL = ['$', '€', '£', '¥', '₺', '₿', '%', '↑', '↓', '→', '+', '−', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    /* Tutar / para — kucuk punto */
+    const SYMBOL_POOL = [
+        '$', '€', '£', '¥', '₺', '₿', '₹', '₽', '¤', '%',
+        ',', '.', '/', '+', '−',
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    ];
+    /* Grafik — daha buyuk; pasta icin dilim unicode, digerleri chart emoji */
+    const CHART_POOL = ['📊', '📈', '📉', '💹', '◔', '◕', '◐', '◑'];
 
     let symbols = [];
 
@@ -242,18 +349,38 @@
         return min + Math.random() * (max - min);
     }
 
+    function pickSymbol() {
+        const chartChance = 0.45;
+        if (Math.random() < chartChance) {
+            return {
+                kind: 'chart',
+                symbol: CHART_POOL[Math.floor(Math.random() * CHART_POOL.length)],
+                size: rand(28, 44),
+                opacity: rand(0.1, 0.28),
+            };
+        }
+        return {
+            kind: 'text',
+            symbol: SYMBOL_POOL[Math.floor(Math.random() * SYMBOL_POOL.length)],
+            size: rand(15, 28),
+            opacity: rand(0.14, 0.38),
+        };
+    }
+
     function buildSymbols() {
         symbols = [];
         const w = canvas.width;
         const h = canvas.height;
         for (let i = 0; i < 70; i++) {
+            const p = pickSymbol();
             symbols.push({
                 x: Math.random() * w,
                 y: Math.random() * h,
                 speed: rand(0.4, 1.2),
-                size: rand(12, 24),
-                opacity: rand(0.14, 0.38),
-                symbol: SYMBOL_POOL[Math.floor(Math.random() * SYMBOL_POOL.length)],
+                size: p.size,
+                opacity: p.opacity,
+                symbol: p.symbol,
+                kind: p.kind,
                 drift: rand(-0.3, 0.3),
             });
         }
@@ -283,10 +410,17 @@
         }
 
         for (const s of symbols) {
-            ctx.font = `${s.size}px monospace`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle = `rgba(74, 222, 128, ${s.opacity})`;
+            ctx.font =
+                s.kind === 'chart'
+                    ? `${s.size}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",system-ui,sans-serif`
+                    : `${s.size}px ui-monospace,Consolas,monospace,sans-serif`;
+            ctx.fillStyle = (function () {
+                const dark = document.documentElement.getAttribute("data-theme") === "dark";
+                const base = dark ? "148, 163, 184" : "37, 99, 235";
+                return `rgba(${base}, ${s.opacity * 0.9})`;
+            })();
             ctx.fillText(s.symbol, s.x, s.y);
         }
 
@@ -300,7 +434,9 @@
                 const dist = Math.hypot(dx, dy);
                 if (dist < 100) {
                     ctx.beginPath();
-                    ctx.strokeStyle = 'rgba(74, 222, 128, 0.14)';
+                    ctx.strokeStyle = document.documentElement.getAttribute("data-theme") === "dark"
+                        ? "rgba(148, 163, 184, 0.14)"
+                        : "rgba(37, 99, 235, 0.12)";
                     ctx.lineWidth = 0.5;
                     ctx.moveTo(a.x, a.y);
                     ctx.lineTo(b.x, b.y);
@@ -384,6 +520,22 @@
         }
     }
     step();
+})();
+
+(function () {
+    document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            const html = document.documentElement;
+            if (html.getAttribute("data-theme") === "dark") {
+                html.removeAttribute("data-theme");
+                try { localStorage.setItem("theme", "light"); } catch (e) {}
+            } else {
+                html.setAttribute("data-theme", "dark");
+                try { localStorage.setItem("theme", "dark"); } catch (e) {}
+            }
+            window.dispatchEvent(new CustomEvent("app-theme-changed"));
+        });
+    });
 })();
 </script>
 @stack('scripts')

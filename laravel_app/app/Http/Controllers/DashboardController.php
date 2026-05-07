@@ -3,10 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
+use App\Support\Currency;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
+use Illuminate\View\View;
 
 /**
  * Dashboard - Bu ay özeti ve hızlı linkler.
@@ -192,8 +193,9 @@ class DashboardController extends Controller
                         implode(', ', $monthLabels)
                     );
                     $insights[] = sprintf(
-                        'These months are above the anomaly threshold (%.2f ₺).',
-                        $anomalyThreshold
+                        'These months are above the anomaly threshold (%.2f %s).',
+                        $anomalyThreshold,
+                        Currency::symbol(session('currency'))
                     );
                     $recommendations[] = 'Review category distribution for those months to identify drivers.';
                     $recommendations[] = 'Consider monthly caps for top spending categories.';

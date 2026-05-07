@@ -116,6 +116,7 @@ class ReportsController extends Controller
             'month'    => $month,
             'expenses' => $expenses,
             'total'    => $totalAmount,
+            'currencySymbol' => \App\Support\Currency::symbol(session('currency')),
         ])->setPaper('a4', 'portrait');
 
         $filename = sprintf('expenses_%d_%02d.pdf', $year, $month);

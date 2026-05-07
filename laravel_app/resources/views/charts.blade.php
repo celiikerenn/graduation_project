@@ -13,7 +13,7 @@
         background: var(--surface);
         border-radius: 16px;
         border: 1px solid var(--border);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 8px 28px rgba(34,197,94,0.06);
+        box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06);
         padding: 24px;
     }
     .chart-card h2 {
@@ -27,6 +27,9 @@
     }
     .chart-empty {
         margin-top: 0.5rem;
+    }
+    [data-theme="dark"] .chart-card {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.2);
     }
 </style>
 @endpush
@@ -57,11 +60,11 @@
         <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-bottom:12px;">
             <div style="background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px;">
                 <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em;">Monthly average</div>
-                <div class="number-value" style="font-size:20px; font-weight:600;">{{ number_format($monthlyAverage ?? 0, 2, ',', '.') }} ₺</div>
+                <div class="number-value" style="font-size:20px; font-weight:600;">{{ number_format($monthlyAverage ?? 0, 2, ',', '.') }} {{ $currencySymbol }}</div>
             </div>
             <div style="background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px;">
                 <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em;">Anomaly threshold</div>
-                <div class="number-value" style="font-size:20px; font-weight:600;">{{ number_format($anomalyThreshold ?? 0, 2, ',', '.') }} ₺</div>
+                <div class="number-value" style="font-size:20px; font-weight:600;">{{ number_format($anomalyThreshold ?? 0, 2, ',', '.') }} {{ $currencySymbol }}</div>
             </div>
             <div style="background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px;">
                 <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em;">Anomaly months</div>
@@ -111,7 +114,7 @@
             </div>
         @else
             <p style="font-size:0.9rem; color:var(--muted); margin-top:0; margin-bottom:0.5rem;">
-                Bars display the total amount (₺) spent in each category across all months.
+                Bars display the total amount ({{ $currencySymbol }}) spent in each category across all months.
             </p>
             <canvas id="barChart" height="210"></canvas>
         @endif
@@ -141,25 +144,38 @@
     const lineData = @json($lineData);
     const barLabels = @json($barLabels);
     const barData = @json($barData);
+    const currencySym = @json($currencySymbol);
 
-    /* Yüksek kontrast: yeşil–teal–zeytun ekseninde belirgin ayrım (OKLAB benzeri dağılım) */
+    /* Grafik renkleri layouts/app :root --cat-* ile ayni (tek kaynak) */
+    function readCssVar(name, fallback) {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    }
     const categoryColors = {
-        food: '#22c55e',
-        transport: '#14b8a6',
-        utilities: '#a3e635',
-        grocery: '#059669',
-        groceries: '#047857',
-        health: '#84cc16',
-        entertainment: '#0d9488',
-        education: '#2dd4bf',
-        clothing: '#65a30d',
-        rent: '#15803d',
-        other: '#5eead4',
+        food: readCssVar('--cat-food', '#f59e0b'),
+        transport: readCssVar('--cat-transport', '#3b82f6'),
+        utilities: readCssVar('--cat-utilities', '#8b5cf6'),
+        grocery: readCssVar('--cat-grocery', '#10b981'),
+        groceries: readCssVar('--cat-groceries', '#10b981'),
+        health: readCssVar('--cat-health', '#ec4899'),
+        entertainment: readCssVar('--cat-entertainment', '#f97316'),
+        education: readCssVar('--cat-education', '#06b6d4'),
+        clothing: readCssVar('--cat-clothing', '#a78bfa'),
+        rent: readCssVar('--cat-rent', '#ef4444'),
+        other: readCssVar('--cat-other', '#6b7280'),
     };
 
     const fallbackColors = [
-        '#22c55e', '#14b8a6', '#a3e635', '#059669', '#84cc16',
-        '#0d9488', '#65a30d', '#047857', '#2dd4bf', '#166534',
+        categoryColors.food,
+        categoryColors.transport,
+        categoryColors.health,
+        categoryColors.clothing,
+        categoryColors.utilities,
+        categoryColors.entertainment,
+        categoryColors.education,
+        categoryColors.other,
+        readCssVar('--cat-fb-0', '#F472B6'),
+        readCssVar('--cat-fb-1', '#84CC16'),
     ];
 
     function normalizeText(value) {
@@ -180,26 +196,86 @@
         return fallbackColors[index % fallbackColors.length];
     }
 
-    const sliceOutline = '#0a0f0d';
+    function sliceOutlineRgba() {
+        return document.documentElement.getAttribute('data-theme') === 'dark'
+            ? 'rgba(241, 245, 249, 0.12)'
+            : 'rgba(15, 23, 42, 0.1)';
+    }
 
     function buildPalette(labels) {
         return labels.map((label, i) => getCategoryColor(label, i));
     }
 
     function buildBorderArray(len) {
-        return Array.from({ length: len }, () => sliceOutline);
+        return Array.from({ length: len }, () => sliceOutlineRgba());
+    }
+
+    function gridLineColor() {
+        return document.documentElement.getAttribute('data-theme') === 'dark'
+            ? 'rgba(148, 163, 184, 0.12)'
+            : 'rgba(15, 23, 42, 0.06)';
+    }
+
+    function applyChartDefaults() {
+        Chart.defaults.color = readCssVar('--muted', '#64748b');
+        Chart.defaults.borderColor = gridLineColor();
+        Chart.defaults.font.family = 'DM Sans, sans-serif';
+    }
+
+    function tickColor() {
+        return readCssVar('--muted', '#64748b');
+    }
+
+    function legendLabelColor() {
+        return readCssVar('--txt2', '#334155');
+    }
+
+    window._appChartInstances = window._appChartInstances || [];
+
+    function refreshAllCharts() {
+        applyChartDefaults();
+        const g = gridLineColor();
+        const tc = tickColor();
+        const lc = legendLabelColor();
+        window._appChartInstances.forEach(function (ch) {
+            if (!ch || !ch.options) return;
+            if (ch.options.plugins && ch.options.plugins.legend && ch.options.plugins.legend.labels) {
+                ch.options.plugins.legend.labels.color = lc;
+            }
+            if (ch.options.scales) {
+                ['x', 'y'].forEach(function (axis) {
+                    const sc = ch.options.scales[axis];
+                    if (!sc) return;
+                    if (sc.grid) sc.grid.color = g;
+                    if (sc.ticks) sc.ticks.color = tc;
+                });
+            }
+            if (ch.config.type === 'pie' && ch.data.datasets[0]) {
+                const n = ch.data.datasets[0].borderColor;
+                const len = Array.isArray(n) ? n.length : 0;
+                if (len) {
+                    ch.data.datasets[0].borderColor = Array.from({ length: len }, () => sliceOutlineRgba());
+                }
+            }
+            if (ch.config.type === 'bar' && ch.data.datasets[0]) {
+                const n = ch.data.datasets[0].borderColor;
+                const len = Array.isArray(n) ? n.length : 0;
+                if (len) {
+                    ch.data.datasets[0].borderColor = Array.from({ length: len }, () => sliceOutlineRgba());
+                }
+            }
+            ch.update();
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        Chart.defaults.color = '#a8d5c3';
-        Chart.defaults.borderColor = 'rgba(74, 222, 128, 0.12)';
-        Chart.defaults.font.family = 'DM Sans, sans-serif';
+        applyChartDefaults();
 
         if (pieLabels.length && document.getElementById('pieChart')) {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             const totalPie = pieData.reduce((sum, v) => sum + Number(v || 0), 0);
             const pieBg = buildPalette(pieLabels);
-            new Chart(ctxPie, {
+            const pieChart = new Chart(ctxPie, {
                 type: 'pie',
                 data: {
                     labels: pieLabels,
@@ -213,7 +289,7 @@
                 },
                 options: {
                     plugins: {
-                        legend: { position: 'bottom', labels: { color: '#a8d5c3' } },
+                        legend: { position: 'bottom', labels: { color: legendLabelColor() } },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -228,20 +304,21 @@
                     }
                 }
             });
+            window._appChartInstances.push(pieChart);
         }
 
         if (lineLabels.length && document.getElementById('lineChart')) {
             const ctxLine = document.getElementById('lineChart').getContext('2d');
-            new Chart(ctxLine, {
+            const lineChart = new Chart(ctxLine, {
                 type: 'line',
                 data: {
                     labels: lineLabels,
                     datasets: [{
-                        label: 'Total Amount (₺)',
+                        label: 'Total Amount (' + currencySym + ')',
                         data: lineData,
-                        borderColor: '#22c55e',
-                        backgroundColor: 'rgba(34, 197, 94, 0.12)',
-                        pointBackgroundColor: '#4ade80',
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        pointBackgroundColor: '#3b82f6',
                         pointRadius: 4,
                         pointHoverRadius: 6,
                         tension: 0.4,
@@ -252,42 +329,31 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: {
-                                color: 'rgba(74, 222, 128, 0.08)'
-                            },
-                            ticks: {
-                                color: '#a8d5c3'
-                            }
+                            grid: { color: gridLineColor() },
+                            ticks: { color: tickColor() }
                         },
                         x: {
-                            grid: {
-                                color: 'rgba(74, 222, 128, 0.08)'
-                            },
-                            ticks: {
-                                color: '#a8d5c3'
-                            }
+                            grid: { color: gridLineColor() },
+                            ticks: { color: tickColor() }
                         }
                     },
                     plugins: {
-                        legend: {
-                            labels: {
-                                color: '#a8d5c3'
-                            }
-                        }
+                        legend: { labels: { color: legendLabelColor() } }
                     }
                 }
             });
+            window._appChartInstances.push(lineChart);
         }
 
         if (barLabels.length && document.getElementById('barChart')) {
             const ctxBar = document.getElementById('barChart').getContext('2d');
             const barBg = buildPalette(barLabels);
-            new Chart(ctxBar, {
+            const barChart = new Chart(ctxBar, {
                 type: 'bar',
                 data: {
                     labels: barLabels,
                     datasets: [{
-                        label: 'Total Amount (₺)',
+                        label: 'Total Amount (' + currencySym + ')',
                         data: barData,
                         backgroundColor: barBg,
                         borderColor: buildBorderArray(barLabels.length),
@@ -299,32 +365,23 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: {
-                                color: 'rgba(74, 222, 128, 0.08)'
-                            },
-                            ticks: {
-                                color: '#a8d5c3'
-                            }
+                            grid: { color: gridLineColor() },
+                            ticks: { color: tickColor() }
                         },
                         x: {
-                            grid: {
-                                color: 'rgba(74, 222, 128, 0.08)'
-                            },
-                            ticks: {
-                                color: '#a8d5c3'
-                            }
+                            grid: { color: gridLineColor() },
+                            ticks: { color: tickColor() }
                         }
                     },
                     plugins: {
-                        legend: {
-                            labels: {
-                                color: '#a8d5c3'
-                            }
-                        }
+                        legend: { labels: { color: legendLabelColor() } }
                     }
                 }
             });
+            window._appChartInstances.push(barChart);
         }
+
+        document.addEventListener('app-theme-changed', refreshAllCharts);
     });
 </script>
 @endpush

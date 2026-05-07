@@ -49,7 +49,7 @@
                 <th>Date</th>
                 <th>Category</th>
                 <th>Description</th>
-                <th class="text-right">Amount (₺)</th>
+                <th class="text-right">Amount ({{ $currencySymbol ?? '₺' }})</th>
             </tr>
         </thead>
         <tbody>

@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Services\FastApiService;
+use App\Support\Currency;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -42,12 +46,19 @@ class AuthController extends Controller
             return back()->withErrors(['email' => $message])->withInput($request->only('email'));
         }
 
+        $this->syncLocalUserRow($user);
+        $local = User::where('email', $user['email'])->first();
+        $currency = $local?->currency !== null && $local->currency !== ''
+            ? Currency::normalize($local->currency)
+            : 'TRY';
+
         session([
             'user_id'   => $user['id'],
             'user_name' => $user['name'],
             'user_email'=> $user['email'],
             'user_role' => $user['role'],
             'monthly_budget' => (float)($user['monthly_budget'] ?? 0),
+            'currency'  => $currency,
         ]);
         $request->session()->regenerate();
 
@@ -83,12 +94,19 @@ class AuthController extends Controller
             return back()->withErrors(['email' => $message])->withInput($request->only('name', 'email'));
         }
 
+        $this->syncLocalUserRow($user);
+        $local = User::where('email', $user['email'])->first();
+        $currency = $local?->currency !== null && $local->currency !== ''
+            ? Currency::normalize($local->currency)
+            : 'TRY';
+
         session([
             'user_id'   => $user['id'],
             'user_name' => $user['name'],
             'user_email'=> $user['email'],
             'user_role' => $user['role'],
             'monthly_budget' => (float)($user['monthly_budget'] ?? 0),
+            'currency'  => $currency,
         ]);
         $request->session()->regenerate();
 
@@ -137,5 +155,33 @@ class AuthController extends Controller
         }
 
         return 'Request failed.';
+    }
+
+    /**
+     * FastAPI ile aynı e-postaya sahip yerel users satırını garanti eder (para birimi vb. Laravel tarafında).
+     *
+     * @param  array<string, mixed>  $user
+     */
+    private function syncLocalUserRow(array $user): void
+    {
+        $email = $user['email'] ?? null;
+        if (!is_string($email) || $email === '') {
+            return;
+        }
+
+        $existing = User::where('email', $email)->first();
+        if ($existing) {
+            $existing->update([
+                'name' => $user['name'] ?? $existing->name,
+            ]);
+            return;
+        }
+
+        User::create([
+            'name' => $user['name'] ?? 'User',
+            'email' => $email,
+            'password' => Hash::make(Str::random(48)),
+            'currency' => 'TRY',
+        ]);
     }
 }

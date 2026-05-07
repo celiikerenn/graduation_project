@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Support\Currency;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        View::composer('*', function ($view) {
+            $code = Currency::normalize(session('currency'));
+            $view->with('currencyCode', $code);
+            $view->with('currencySymbol', Currency::symbol($code));
+        });
     }
 }

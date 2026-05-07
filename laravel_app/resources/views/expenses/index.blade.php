@@ -8,7 +8,7 @@
         background: var(--surface);
         border-radius: 16px;
         border: 1px solid var(--border);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 8px 28px rgba(34,197,94,0.06);
+        box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06);
         overflow: hidden;
     }
     .expenses-table col.col-id { width: 4.5rem; }
@@ -17,7 +17,7 @@
     .expenses-table col.col-desc { min-width: 10rem; }
     .expenses-table col.col-amount { width: 8rem; }
     .expenses-table col.col-created { width: 9.5rem; }
-    .expenses-table col.col-actions { width: 11rem; }
+    .expenses-table col.col-actions { width: 11.5rem; }
     .expenses-table .cell-id {
         font-family: 'DM Mono', monospace;
         font-size: 12px;
@@ -36,7 +36,7 @@
         transition: background-color 0.14s ease;
     }
     .expenses-table tbody tr:hover {
-        background: rgba(34, 197, 94, 0.08);
+        background: rgba(37, 99, 235, 0.06);
     }
     .expenses-table td {
         padding: 14px 16px;
@@ -51,31 +51,44 @@
     .expense-actions {
         display:flex;
         align-items:center;
-        gap:6px;
+        gap:8px;
         justify-content:flex-end;
+        flex-wrap: wrap;
     }
     .expense-actions .btn {
         border-radius: 8px;
-        padding: 5px 12px;
+        padding: 6px 10px;
         font-size: 12px;
         font-weight: 600;
         box-shadow: none !important;
         transform: none !important;
+        min-width: auto;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap: 0.35rem;
+        white-space: nowrap;
     }
-    .expense-actions .btn-secondary {
-        background: rgba(34, 197, 94, 0.12);
-        color: #86efac;
-        border: 1px solid rgba(74, 222, 128, 0.28);
+    .expense-actions .btn-expense-edit {
+        background: rgba(245, 158, 11, 0.16);
+        color: #b45309;
+        border: 1px solid rgba(217, 119, 6, 0.4);
     }
-    .expense-actions .btn-secondary:hover { background: rgba(34, 197, 94, 0.2); }
-    .expense-actions .btn-delete-trigger,
-    .expense-actions .delete-confirm {
-        background: #fef2f2;
-        color: #ef4444;
-        border: 1px solid rgba(239,68,68,0.2);
+    .expense-actions .btn-expense-edit:hover {
+        background: rgba(245, 158, 11, 0.26);
+        color: #92400e;
+        border-color: rgba(217, 119, 6, 0.65);
     }
-    .expense-actions .btn-delete-trigger:hover,
-    .expense-actions .delete-confirm:hover { background: #fee2e2; }
+    .expense-actions .btn-expense-delete {
+        background: rgba(239, 68, 68, 0.1);
+        color: #b91c1c;
+        border: 1px solid rgba(220, 38, 38, 0.35);
+    }
+    .expense-actions .btn-expense-delete:hover {
+        background: rgba(239, 68, 68, 0.18);
+        color: #991b1b;
+        border-color: rgba(220, 38, 38, 0.55);
+    }
     .row-deleting { opacity:0; transform: translateY(-6px); transition: opacity 0.2s ease, transform 0.2s ease; }
 
     .expense-delete-modal {
@@ -132,12 +145,13 @@
     }
     .expense-delete-modal__actions .btn { min-width: 5.5rem; }
     .expense-delete-modal__actions .delete-confirm {
-        background: rgba(248, 113, 113, 0.12);
-        color: #fca5a5;
-        border: 1px solid rgba(248, 113, 113, 0.35);
+        background: rgba(220, 38, 38, 0.12);
+        color: #b91c1c;
+        border: 1px solid rgba(220, 38, 38, 0.35);
     }
     .expense-delete-modal__actions .delete-confirm:hover {
-        background: rgba(248, 113, 113, 0.2);
+        background: rgba(220, 38, 38, 0.2);
+        color: #991b1b;
     }
 </style>
 @endpush
@@ -216,17 +230,21 @@
                         </td>
                         <td>{{ \Illuminate\Support\Str::limit($e['description'] ?? '-', 40) }}</td>
                         <td class="text-right amount-cell">
-                            {{ number_format($e['amount'], 2, ',', '.') }} ₺
+                            {{ number_format($e['amount'], 2, ',', '.') }} {{ $currencySymbol }}
                         </td>
                         <td class="date-cell">{{ \Carbon\Carbon::parse($e['created_at'])->format('d.m.Y H:i') }}</td>
                         <td>
                             <div class="expense-actions">
-                                <a class="btn btn-secondary" href="{{ route('expenses.edit', $e['id']) }}">Edit</a>
+                                <a class="btn btn-expense-edit" href="{{ route('expenses.edit', $e['id']) }}" title="Edit expense" aria-label="Edit expense">
+                                    <span aria-hidden="true">✏</span> Edit
+                                </a>
                                 <button
                                     type="button"
-                                    class="btn btn-secondary btn-delete-trigger"
-                                    data-expense-line="{{ e(\Illuminate\Support\Str::limit($e['description'] ?? '—', 80)) }} · {{ number_format($e['amount'], 2, ',', '.') }} ₺"
-                                >Delete</button>
+                                    class="btn btn-expense-delete btn-delete-trigger"
+                                    data-expense-line="{{ e(\Illuminate\Support\Str::limit($e['description'] ?? '—', 80)) }} · {{ number_format($e['amount'], 2, ',', '.') }} {{ $currencySymbol }}"
+                                    title="Delete expense"
+                                    aria-label="Delete expense"
+                                ><span aria-hidden="true">🗑</span> Delete</button>
                                 <form method="POST" action="{{ route('expenses.destroy', $e['id']) }}" style="display:none;" class="delete-form">
                                     @csrf
                                     @method('DELETE')

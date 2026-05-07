@@ -3,12 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
+use App\Support\Currency;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
+    private function defaultFixedTemplates(): array
+    {
+        return [];
+    }
+
     public function __construct(
         protected FastApiService $api
     ) {}
@@ -20,9 +27,19 @@ class ProfileController extends Controller
             return redirect()->route('login');
         }
 
+        $categories = [];
+        try {
+            $categories = $this->api->listCategories();
+        } catch (\Throwable $e) {
+            // API down ise profile yine açılsın
+        }
+
         return view('profile', [
             'name'          => $request->session()->get('user_name'),
             'email'         => $request->session()->get('user_email'),
+            'categories'    => $categories,
+            'fixedTemplates'=> $request->session()->get('fixed_expense_templates', $this->defaultFixedTemplates()),
+            'currency'      => Currency::normalize(session('currency')),
         ]);
     }
 
@@ -92,6 +109,60 @@ class ProfileController extends Controller
         }
 
         return back()->with('success', 'Password changed successfully.');
+    }
+
+    public function updateMonthlyFixedExpenses(Request $request): RedirectResponse
+    {
+        $userId = $request->session()->get('user_id');
+        if (!$userId) {
+            return redirect()->route('login');
+        }
+
+        $templates = $request->input('templates', []);
+        if (!is_array($templates)) {
+            return back()->withErrors(['amount' => 'Invalid fixed expense template payload.'])->withInput();
+        }
+
+        $cleaned = [];
+        foreach ($templates as $row) {
+            $category = trim((string) ($row['category'] ?? ''));
+            $description = trim((string) ($row['description'] ?? ''));
+            $amount = (float) ($row['amount'] ?? 0);
+
+            if ($category === '' || $description === '' || $amount <= 0) {
+                continue;
+            }
+
+            $cleaned[] = [
+                'category' => $category,
+                'description' => mb_substr($description, 0, 120),
+                'amount' => round($amount, 2),
+            ];
+        }
+
+        $request->session()->put('fixed_expense_templates', $cleaned);
+        return redirect()->route('profile.show')->with('success', 'Monthly fixed expense templates updated.');
+    }
+
+    public function updateCurrency(Request $request): RedirectResponse
+    {
+        $userId = $request->session()->get('user_id');
+        if (!$userId) {
+            return redirect()->route('login');
+        }
+
+        $validated = $request->validate([
+            'currency' => ['required', 'string', 'in:TRY,USD,EUR,GBP'],
+        ]);
+
+        $code = Currency::normalize($validated['currency']);
+        $email = (string) $request->session()->get('user_email', '');
+        if ($email !== '') {
+            User::where('email', $email)->update(['currency' => $code]);
+        }
+        $request->session()->put('currency', $code);
+
+        return redirect()->route('profile.show')->with('success', 'Currency preference saved.');
     }
 }
 

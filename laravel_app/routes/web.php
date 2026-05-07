@@ -25,6 +25,7 @@ Route::middleware('web')->group(function () {
     Route::get('/expenses/create', [ExpenseController::class, 'create'])->name('expenses.create');
     Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
     Route::post('/expenses/ocr', [ExpenseController::class, 'storeFromReceipt'])->name('expenses.ocr.store');
+    Route::post('/expenses/fixed-monthly', [ExpenseController::class, 'storeMonthlyFixedExpenses'])->name('expenses.fixed-monthly.store');
     Route::get('/expenses/{expenseId}/edit', [ExpenseController::class, 'edit'])->name('expenses.edit');
     Route::put('/expenses/{expenseId}', [ExpenseController::class, 'update'])->name('expenses.update');
     Route::delete('/expenses/{expenseId}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
@@ -34,10 +35,13 @@ Route::middleware('web')->group(function () {
     Route::get('/reports/{year}/{month}.pdf', [ReportsController::class, 'downloadPdf'])->name('reports.pdf');
 
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::post('/profile/currency', [ProfileController::class, 'updateCurrency'])->name('profile.currency.update');
     Route::post('/profile/update-budget', [ProfileController::class, 'updateBudget'])->name('profile.update-budget');
 
     Route::get('/profile/budget', [ProfileController::class, 'showBudget'])->name('profile.budget.show');
 
     Route::post('/profile/change-password', [ProfileController::class, 'changePassword'])
         ->name('profile.change-password.update');
+    Route::post('/profile/fixed-monthly/templates', [ProfileController::class, 'updateMonthlyFixedExpenses'])
+        ->name('profile.fixed-monthly.templates.update');
 });
