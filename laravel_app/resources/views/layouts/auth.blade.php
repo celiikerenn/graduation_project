@@ -9,9 +9,9 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
         :root {
-            --bg: #f1f5f9;
+            --bg: #e2e8f0;
             --surface: #ffffff;
-            --surface2: #f8fafc;
+            --surface2: #f1f5f9;
             --border: rgba(15, 23, 42, 0.08);
             --border2: rgba(15, 23, 42, 0.12);
             --acc: #2563eb;
@@ -38,9 +38,9 @@
             overflow: hidden;
             position: relative;
             background:
-                radial-gradient(900px 420px at 82% -6%, rgba(59, 130, 246, 0.16) 0%, transparent 72%),
-                radial-gradient(680px 360px at 8% 8%, rgba(37, 99, 235, 0.08) 0%, transparent 76%),
-                linear-gradient(180deg, #ffffff 0%, #f1f5f9 48%, #e8edf4 100%);
+                radial-gradient(900px 420px at 82% -6%, rgba(59, 130, 246, 0.14) 0%, transparent 72%),
+                radial-gradient(680px 360px at 8% 8%, rgba(37, 99, 235, 0.07) 0%, transparent 76%),
+                linear-gradient(180deg, #f4f6f8 0%, #e2e8f0 48%, #d5dde6 100%);
         }
 
         #auth-canvas {
@@ -340,7 +340,7 @@
         ',', '.', '/', '+', '−',
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
     ];
-    /* Grafik — daha buyuk; pasta icin dilim unicode, digerleri chart emoji */
+    /* Grafik emojileri (arka plan — kucuk punto) */
     const CHART_POOL = ['📊', '📈', '📉', '💹', '◔', '◕', '◐', '◑'];
 
     let symbols = [];
@@ -355,15 +355,15 @@
             return {
                 kind: 'chart',
                 symbol: CHART_POOL[Math.floor(Math.random() * CHART_POOL.length)],
-                size: rand(28, 44),
-                opacity: rand(0.1, 0.28),
+                size: rand(20, 30),
+                opacity: rand(0.06, 0.18),
             };
         }
         return {
             kind: 'text',
             symbol: SYMBOL_POOL[Math.floor(Math.random() * SYMBOL_POOL.length)],
-            size: rand(15, 28),
-            opacity: rand(0.14, 0.38),
+            size: rand(12, 21),
+            opacity: rand(0.08, 0.22),
         };
     }
 
@@ -371,7 +371,7 @@
         symbols = [];
         const w = canvas.width;
         const h = canvas.height;
-        for (let i = 0; i < 70; i++) {
+        for (let i = 0; i < 120; i++) {
             const p = pickSymbol();
             symbols.push({
                 x: Math.random() * w,
@@ -419,7 +419,7 @@
             ctx.fillStyle = (function () {
                 const dark = document.documentElement.getAttribute("data-theme") === "dark";
                 const base = dark ? "148, 163, 184" : "37, 99, 235";
-                return `rgba(${base}, ${s.opacity * 0.9})`;
+                return `rgba(${base}, ${s.opacity * 0.72})`;
             })();
             ctx.fillText(s.symbol, s.x, s.y);
         }
@@ -435,8 +435,8 @@
                 if (dist < 100) {
                     ctx.beginPath();
                     ctx.strokeStyle = document.documentElement.getAttribute("data-theme") === "dark"
-                        ? "rgba(148, 163, 184, 0.14)"
-                        : "rgba(37, 99, 235, 0.12)";
+                        ? "rgba(148, 163, 184, 0.08)"
+                        : "rgba(37, 99, 235, 0.07)";
                     ctx.lineWidth = 0.5;
                     ctx.moveTo(a.x, a.y);
                     ctx.lineTo(b.x, b.y);

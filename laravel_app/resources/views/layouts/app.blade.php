@@ -10,10 +10,10 @@
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
         :root {
             /* Acik tema: beyaz + mavi iskelet, vurgular asagida */
-            --bg: #f1f5f9;
-            --bg2: #e2e8f0;
+            --bg: #e2e8f0;
+            --bg2: #cbd5e1;
             --surface: #ffffff;
-            --surface2: #f8fafc;
+            --surface2: #f1f5f9;
             --border: rgba(15, 23, 42, 0.08);
             --border2: rgba(15, 23, 42, 0.12);
             --acc: #2563eb;
@@ -131,28 +131,20 @@
             color: var(--txt);
             min-height: 100vh;
             background:
-                radial-gradient(900px 420px at 88% -6%, rgba(59, 130, 246, 0.14) 0%, transparent 70%),
-                radial-gradient(720px 380px at 6% 4%, rgba(37, 99, 235, 0.07) 0%, transparent 74%),
-                linear-gradient(180deg, #ffffff 0%, #f1f5f9 50%, #e8eef5 100%);
+                radial-gradient(900px 420px at 88% -6%, rgba(59, 130, 246, 0.12) 0%, transparent 70%),
+                radial-gradient(720px 380px at 6% 4%, rgba(37, 99, 235, 0.06) 0%, transparent 74%),
+                linear-gradient(180deg, #f4f6f8 0%, #e2e8f0 50%, #d5dde6 100%);
         }
         .mono, .currency-value, .number-value, .date-cell, .amount-cell {
             font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         }
         .app-shell, .main { min-height: 100vh; display: flex; flex-direction: column; }
-        #app-bg-canvas {
-            position: fixed;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none;
-        }
         .app-shell {
             position: relative;
             z-index: 1;
         }
         .topbar {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(248, 250, 252, 0.94);
             backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--border2);
             padding: 0 32px;
@@ -174,6 +166,7 @@
             height: 1px;
             background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.35), transparent);
             pointer-events: none;
+            z-index: 2;
         }
         .topbar::after {
             content: "";
@@ -181,9 +174,18 @@
             inset: 0;
             background: radial-gradient(120% 180% at 50% -100%, rgba(59, 130, 246, 0.06), transparent 58%);
             pointer-events: none;
+            z-index: 0;
         }
+        /* Sol blokta position:relative olmamalı; yoksa .topbar-nav yanlış blokta ortalanır */
         .topbar-left { display:flex; align-items:center; gap: 12px; }
-        .topbar-right { display:flex; align-items:center; gap: 10px; color: var(--txt2); }
+        .topbar-right {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--txt2);
+        }
         .sidebar-header { display:flex; align-items:center; gap:8px; }
         .sidebar-wordmark {
             display: inline-flex;
@@ -200,7 +202,7 @@
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(241, 245, 249, 0.95);
+            background: rgba(226, 232, 240, 0.96);
             border: 1px solid var(--border2);
             border-radius: 12px;
             padding: 4px 6px;
@@ -509,7 +511,7 @@
         .budget-bar {
             height: 9px;
             border-radius: 99px;
-            background: #e2e8f0;
+            background: var(--bg2);
             overflow: hidden;
             border: 1px solid var(--border);
             transition: border-color 0.25s ease, box-shadow 0.25s ease;
@@ -575,8 +577,7 @@
     @stack('styles')
 </head>
 <body data-currency-symbol="{{ $currencySymbol ?? '₺' }}">
-    @if(session('user_id'))
-        <canvas id="app-bg-canvas" aria-hidden="true"></canvas>
+        @if(session('user_id'))
         <div class="app-shell">
             <div class="main">
                 <header class="topbar">
@@ -694,79 +695,6 @@
                 el.classList.add("enter-item");
                 el.style.animationDelay = `${(i + 1) * 0.06}s`;
             });
-        })();
-
-        /* Auth sayfasindaki sembol yagmuru: cok seyrek, yavas, dusuk kontrast; cizgi yok; reduce-motion'da kapali */
-        (() => {
-            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-            const canvas = document.getElementById("app-bg-canvas");
-            if (!canvas || !canvas.getContext) return;
-            const ctx = canvas.getContext("2d");
-            const SYMBOL_POOL = ["$", "€", "£", "¥", "₺", "%", "↑", "↓", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-            let symbols = [];
-
-            function rand(min, max) {
-                return min + Math.random() * (max - min);
-            }
-
-            function buildSymbols() {
-                symbols = [];
-                const w = canvas.width;
-                const h = canvas.height;
-                const count = Math.min(22, Math.max(14, Math.floor((w * h) / 95000)));
-                for (let i = 0; i < count; i++) {
-                    symbols.push({
-                        x: Math.random() * w,
-                        y: Math.random() * h,
-                        speed: rand(0.05, 0.16),
-                        size: rand(12, 17),
-                        opacity: rand(0.045, 0.11),
-                        symbol: SYMBOL_POOL[Math.floor(Math.random() * SYMBOL_POOL.length)],
-                        drift: rand(-0.1, 0.1),
-                    });
-                }
-            }
-
-            function resize() {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                buildSymbols();
-            }
-
-            function frame() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                const w = canvas.width;
-                const h = canvas.height;
-
-                for (const s of symbols) {
-                    s.y += s.speed;
-                    s.x += s.drift;
-                    if (s.y > h + 24) {
-                        s.y = -24;
-                        s.x = Math.random() * w;
-                    }
-                    if (s.x < -16 || s.x > w + 16) {
-                        s.drift *= -1;
-                    }
-                }
-
-                for (const s of symbols) {
-                    ctx.font = `${s.size}px monospace`;
-                    ctx.textAlign = "center";
-                    ctx.textBaseline = "middle";
-                    const dark = document.documentElement.getAttribute("data-theme") === "dark";
-                    ctx.fillStyle = dark
-                        ? `rgba(148, 163, 184, ${s.opacity * 0.85})`
-                        : `rgba(37, 99, 235, ${s.opacity * 0.95})`;
-                    ctx.fillText(s.symbol, s.x, s.y);
-                }
-
-                requestAnimationFrame(frame);
-            }
-
-            window.addEventListener("resize", resize);
-            resize();
-            requestAnimationFrame(frame);
         })();
     </script>
 

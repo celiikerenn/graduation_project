@@ -19,7 +19,7 @@ Default local URLs:
 
 - Register / login (session-based)
 - Dashboard, charts, expense list with filters, create/edit/delete
-- Receipt upload with **Tesseract OCR** (optional path in `.env`)
+- Receipt upload with **OCR** (EasyOCR varsayılan `auto`; Tesseract veya OCR.space alternatifleri — `backend` `.env` içinde `OCR_ENGINE`)
 - Monthly reports (CSV/PDF), profile and budget settings
 
 ## Repository layout
@@ -40,7 +40,7 @@ graduation_project/
 - **PHP** ^8.2, **Composer**
 - **Python** 3.11+ (recommended)
 - **MySQL** (e.g. XAMPP) and an empty database (e.g. `finance_tracker`)
-- **Tesseract OCR** (optional, for receipt scanning)—[Windows builds](https://github.com/UB-Mannheim/tesseract/wiki) or your OS package manager
+- **EasyOCR** (Python `pip`; varsayılan, fiş fotoğraflarında genelde Tesseract’tan iyi) **veya** **Tesseract** (`OCR_ENGINE=tesseract`)—[Windows builds](https://github.com/UB-Mannheim/tesseract/wiki). PyTorch istemezsen `OCR_ENGINE=ocrspace` + ücretsiz [OCR.space](https://ocr.space/ocrapi) anahtarı kullanılabilir.
 
 ## Backend (FastAPI)
 
@@ -50,7 +50,7 @@ python -m venv .venv
 # Windows:
 .\.venv\Scripts\pip install -r requirements.txt
 copy .env.example .env
-# Edit .env: MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, TESSERACT_CMD (if needed)
+# Edit .env: MYSQL_*, OCR_ENGINE (auto|easyocr|tesseract|ocrspace), OCRSPACE_API_KEY (ocrspace için), TESSERACT_CMD (tesseract yolunda)
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 

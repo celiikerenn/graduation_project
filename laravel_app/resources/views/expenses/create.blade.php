@@ -4,23 +4,41 @@
 
 @push('styles')
 <style>
-    .receipt-upload {
-        border: 1px dashed rgba(37, 99, 235, 0.35);
-        background: rgba(37, 99, 235, 0.05);
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
+    .receipt-file-status {
+        margin: 0.35rem 0 0;
+        font-size: 0.86rem;
         color: var(--muted);
-        cursor: pointer;
-        transition: border-color 0.2s, background 0.2s;
-        font-size: 14px;
-        font-weight: 500;
-        text-transform: none !important;
-        letter-spacing: 0 !important;
+        min-height: 1.25rem;
     }
-    .receipt-upload:hover {
-        border-color: rgba(37, 99, 235, 0.55);
-        background: rgba(37, 99, 235, 0.09);
+    .receipt-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.65rem;
+    }
+    .receipt-toolbar .btn { margin: 0; }
+    .receipt-camera-panel {
+        display: none;
+        margin-top: 0.75rem;
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 1px solid var(--border2);
+        background: var(--surface2);
+    }
+    .receipt-camera-panel.is-open { display: block; }
+    .receipt-camera-panel video {
+        width: 100%;
+        max-height: 280px;
+        border-radius: 10px;
+        background: #0f172a;
+        object-fit: cover;
+    }
+    .receipt-camera-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.65rem;
     }
 </style>
 @endpush
@@ -32,23 +50,38 @@
 </p>
 <div class="card" style="margin-bottom:1rem;">
     <h2 style="margin-top:0; margin-bottom:0.75rem; font-size:1.1rem;">Auto-add from receipt (AI)</h2>
-    <form method="POST" action="{{ route('expenses.ocr.store') }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('expenses.ocr.store') }}" enctype="multipart/form-data" id="receipt-ocr-form">
         @csrf
         <div class="form-group">
             <label for="receipt">Receipt Photo</label>
             <input type="file" id="receipt" name="receipt" accept="image/*" required style="display:none;">
-            <label for="receipt" id="receipt-upload-label" class="receipt-upload">Click to upload receipt</label>
+            <div class="receipt-toolbar">
+                <button type="button" class="btn btn-secondary" id="receipt-pick-btn">Upload photo</button>
+                <button type="button" class="btn btn-secondary" id="receipt-camera-btn">Use camera</button>
+            </div>
+            <p class="receipt-file-status" id="receipt-file-status" aria-live="polite">No photo selected</p>
+            <div class="receipt-camera-panel" id="receipt-camera-panel" aria-hidden="true">
+                <video id="receipt-video" playsinline muted autoplay></video>
+                <div class="receipt-camera-actions">
+                    <button type="button" class="btn btn-primary" id="receipt-capture-btn">Capture photo</button>
+                    <button type="button" class="btn btn-secondary" id="receipt-camera-cancel">Close camera</button>
+                </div>
+                <p style="margin:0.5rem 0 0; font-size:0.8rem; color:var(--muted);">
+                    Frame the receipt, then capture.
+                </p>
+            </div>
             <div style="font-size:0.82rem; color:var(--muted); margin-top:0.25rem;">
-                Upload a clear receipt photo. Text is read on the server with AI; store, amount, date and category are detected automatically.
+                Upload a photo or take one with the camera.
             </div>
             @error('receipt') <div class="text-danger">{{ $message }}</div> @enderror
         </div>
         <button type="submit" class="btn btn-primary">
-            Extract from receipt
+            Scan receipt &amp; add
         </button>
     </form>
 </div>
 <div class="card">
+    <h2 style="margin-top:0; margin-bottom:0.75rem; font-size:1.1rem;">Manual expense</h2>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:0.9rem; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
             <button type="submit" form="fixed-expense-form" class="btn btn-secondary">Add this month's fixed expenses</button>
@@ -122,11 +155,93 @@
 <script>
 (() => {
     const input = document.getElementById('receipt');
-    const label = document.getElementById('receipt-upload-label');
-    if (input && label) {
-        input.addEventListener('change', () => {
-            const file = input.files && input.files[0];
-            label.textContent = file ? file.name : 'Click to upload receipt';
+    const fileStatus = document.getElementById('receipt-file-status');
+    const pickBtn = document.getElementById('receipt-pick-btn');
+    const camBtn = document.getElementById('receipt-camera-btn');
+    const panel = document.getElementById('receipt-camera-panel');
+    const video = document.getElementById('receipt-video');
+    const captureBtn = document.getElementById('receipt-capture-btn');
+    const cancelCam = document.getElementById('receipt-camera-cancel');
+
+    let mediaStream = null;
+
+    function setFileStatus() {
+        const file = input && input.files && input.files[0];
+        if (fileStatus) fileStatus.textContent = file ? file.name : 'No photo selected';
+    }
+
+    if (input) {
+        input.addEventListener('change', setFileStatus);
+    }
+
+    if (pickBtn && input) {
+        pickBtn.addEventListener('click', () => input.click());
+    }
+
+    function stopCamera() {
+        if (mediaStream) {
+            mediaStream.getTracks().forEach((t) => t.stop());
+            mediaStream = null;
+        }
+        if (video) video.srcObject = null;
+        if (panel) {
+            panel.classList.remove('is-open');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    async function openCamera() {
+        if (!video || !panel) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            window.alert('Tarayıcı kamera erişimini desteklemiyor. HTTPS veya localhost kullan veya “Upload photo” ile galeriden seç.');
+            return;
+        }
+        stopCamera();
+        try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+                audio: false,
+            });
+            video.srcObject = mediaStream;
+            panel.classList.add('is-open');
+            panel.setAttribute('aria-hidden', 'false');
+            await video.play().catch(() => {});
+        } catch (err) {
+            window.alert('Kamera açılamadı. İzin verildiğinden emin ol; mobilde genelde HTTPS gerekir.');
+            stopCamera();
+        }
+    }
+
+    if (camBtn) camBtn.addEventListener('click', openCamera);
+    if (cancelCam) cancelCam.addEventListener('click', stopCamera);
+
+    if (captureBtn && input && video) {
+        captureBtn.addEventListener('click', () => {
+            const w = video.videoWidth;
+            const h = video.videoHeight;
+            if (!w || !h) {
+                window.alert('Kamera görüntüsü hazır değil; bir saniye bekleyip tekrar dene.');
+                return;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(video, 0, 0, w, h);
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob || !input) return;
+                    const file = new File([blob], 'receipt-camera.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+                    setFileStatus();
+                    stopCamera();
+                },
+                'image/jpeg',
+                0.92
+            );
         });
     }
 

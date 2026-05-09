@@ -2,15 +2,22 @@
 Harcama CRUD ve aylık özet API endpoint'leri.
 Laravel, oturumdaki user_id ile istek atar.
 """
-from datetime import date
-from decimal import Decimal
+import asyncio
+import base64
 import io
+import json
 import logging
 import os
 import re
+import threading
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import date
+from decimal import Decimal
 
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageOps
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract
@@ -44,6 +51,43 @@ def _configure_tesseract_path() -> None:
 _configure_tesseract_path()
 
 
+def _ensure_tesseract_available() -> None:
+    try:
+        pytesseract.get_tesseract_version()
+    except pytesseract.TesseractNotFoundError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Tesseract OCR bulunamadı. Kurup TESSERACT_CMD ayarla: "
+                "https://github.com/UB-Mannheim/tesseract/wiki"
+            ),
+        ) from e
+
+
+def _ensure_ocr_available() -> None:
+    """OCR_ENGINE ayarına göre Tesseract / EasyOCR / OCR.space ön kontrolü."""
+    eng = (settings.OCR_ENGINE or "auto").lower().strip()
+    if eng == "easyocr":
+        try:
+            import easyocr  # noqa: F401
+        except ImportError as e:
+            raise HTTPException(
+                status_code=503,
+                detail="EasyOCR kurulu değil. backend klasöründe: pip install easyocr",
+            ) from e
+        return
+    if eng == "ocrspace":
+        return
+    if eng == "tesseract":
+        _ensure_tesseract_available()
+        return
+    # auto: EasyOCR yoksa Tesseract şart
+    try:
+        import easyocr  # noqa: F401
+    except ImportError:
+        _ensure_tesseract_available()
+
+
 def _normalize_category(raw: str) -> str:
     value = (raw or "").strip().lower()
     category_map = {
@@ -61,21 +105,164 @@ def _normalize_category(raw: str) -> str:
     return category_map.get(value, "Other")
 
 
-def _receipt_image_to_ocr_text(image: Image.Image) -> str:
-    gray = image.convert("L")
-    processed = gray.point(lambda x: 0 if x < 170 else 255, mode="1")
+def _score_ocr_text(text: str) -> int:
+    """Fiş metninde rakam/tutar izi olan satırları öne çıkar (en iyi OCR çıktısını seçmek için)."""
+    if not (text or "").strip():
+        return 0
+    score = 0
+    for ln in text.replace("\r", "\n").split("\n"):
+        s = ln.strip()
+        if not s:
+            continue
+        if re.search(r"\d", s):
+            score += 4
+        if re.search(r"(?:\d+[.,]\d{2})|(?:[.,]\d{2}\b)", s):
+            score += 6
+        if re.search(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}", s):
+            score += 5
+    score += min(len(text) // 24, 35)
+    return score
+
+
+def _tesseract_line(img: Image.Image, lang: str, psm: str) -> str:
     try:
-        return pytesseract.image_to_string(processed, lang="tur+eng", config="--psm 6")
-    except pytesseract.TesseractNotFoundError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Tesseract OCR bulunamadı. Kurup TESSERACT_CMD ayarla: "
-                "https://github.com/UB-Mannheim/tesseract/wiki"
-            ),
-        ) from e
+        return pytesseract.image_to_string(img, lang=lang, config=psm) or ""
+    except pytesseract.TesseractNotFoundError:
+        raise
     except Exception:
-        return pytesseract.image_to_string(processed, lang="eng", config="--psm 6")
+        try:
+            return pytesseract.image_to_string(img, lang="eng", config=psm) or ""
+        except Exception:
+            return ""
+
+
+def _receipt_image_to_ocr_text_tesseract(image: Image.Image) -> str:
+    """
+    Birden fazla ikili eşik + PSM kombinasyonu dener; skoru en yüksek metni kullanır.
+    Zayıf aydınlatma / buruşuk fişlerde tek geçişe göre genelde daha iyi sonuç verir.
+    """
+    gray = image.convert("L")
+    ac = ImageOps.autocontrast(gray, cutoff=2)
+
+    binaries: list[Image.Image] = [
+        gray.point(lambda x: 0 if x < 170 else 255, mode="1"),
+        gray.point(lambda x: 0 if x < 145 else 255, mode="1"),
+        ac.point(lambda x: 0 if x < 128 else 255, mode="1"),
+        ac.point(lambda x: 0 if x < 155 else 255, mode="1"),
+    ]
+
+    psm_modes = ("--psm 6", "--psm 11", "--psm 4")
+
+    candidates: list[str] = []
+    for bin_img in binaries:
+        for psm in psm_modes:
+            candidates.append(_tesseract_line(bin_img, "tur+eng", psm))
+
+    # Ham gri — ince yazılar / renkli fişlerde bazen daha iyi
+    for psm in ("--psm 11", "--psm 6"):
+        candidates.append(_tesseract_line(gray, "tur+eng", psm))
+
+    best = ""
+    best_score = -1
+    for c in candidates:
+        sc = _score_ocr_text(c)
+        if sc > best_score:
+            best_score = sc
+            best = c
+
+    return best if best.strip() else (candidates[0] if candidates else "")
+
+
+_easyocr_lock = threading.Lock()
+_easyocr_reader = None
+
+
+def _get_easyocr_reader():
+    """EasyOCR okuyucu (ilk çağrıda model indirebilir — ~100MB CPU)."""
+    global _easyocr_reader
+    if _easyocr_reader is None:
+        with _easyocr_lock:
+            if _easyocr_reader is None:
+                import easyocr
+
+                logger.info("EasyOCR yükleniyor (ilk seferde model indirilebilir, birkaç sn sürebilir)...")
+                _easyocr_reader = easyocr.Reader(["tr", "en"], gpu=False, verbose=False)
+    return _easyocr_reader
+
+
+def _receipt_image_to_ocr_text_easyocr(image: Image.Image) -> str:
+    """Derin öğrenme tabanlı OCR — fiş fotoğraflarında çoğu zaman Tesseract'tan iyi sonuç."""
+    import numpy as np
+
+    reader = _get_easyocr_reader()
+    arr = np.asarray(image.convert("RGB"))
+    segments = reader.readtext(arr)
+    lines = [seg[1] for seg in segments if len(seg) > 1]
+    return "\n".join(lines).strip()
+
+
+def _receipt_image_to_ocr_text_ocrspace(image: Image.Image) -> str:
+    """
+    OCR.space bulut API (ücretsiz kota; anahtar: https://ocr.space/ocrapi).
+    PyTorch kurmadan hafif kurulum için kullanılabilir.
+    """
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG", quality=90)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    key = (settings.OCRSPACE_API_KEY or "").strip() or "helloworld"
+    payload = urllib.parse.urlencode(
+        {
+            "apikey": key,
+            "language": "tur",
+            "base64Image": f"data:image/jpeg;base64,{b64}",
+            "isOverlayRequired": "false",
+            "detectOrientation": "true",
+        }
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.ocr.space/parse/image",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"OCR.space HTTP hatası: {e.code}") from e
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"OCR.space bağlantı hatası: {e}") from e
+
+    if body.get("IsErroredOnProcessing"):
+        err = body.get("ErrorMessage") or body.get("ErrorDetails") or "Bilinmeyen OCR.space hatası"
+        if isinstance(err, list):
+            err = "; ".join(str(x) for x in err)
+        raise HTTPException(status_code=502, detail=str(err))
+
+    results = body.get("ParsedResults") or []
+    parts = [r.get("ParsedText", "") for r in results if isinstance(r, dict)]
+    return "\n".join(parts).strip()
+
+
+def _receipt_image_to_ocr_text(image: Image.Image) -> str:
+    """settings.OCR_ENGINE: auto | easyocr | tesseract | ocrspace"""
+    eng = (settings.OCR_ENGINE or "auto").lower().strip()
+
+    if eng == "easyocr":
+        return _receipt_image_to_ocr_text_easyocr(image)
+    if eng == "ocrspace":
+        return _receipt_image_to_ocr_text_ocrspace(image)
+    if eng == "tesseract":
+        return _receipt_image_to_ocr_text_tesseract(image)
+
+    # auto
+    try:
+        import easyocr  # noqa: F401
+
+        return _receipt_image_to_ocr_text_easyocr(image)
+    except ImportError:
+        logger.info("EasyOCR bulunamadı; Tesseract kullanılıyor (pip install easyocr ile iyileştirilebilir).")
+    return _receipt_image_to_ocr_text_tesseract(image)
 
 
 def _parse_money_candidates(text: str) -> list[Decimal]:
@@ -258,8 +445,8 @@ async def create_expense_from_receipt(
     db: Session = Depends(get_db),
 ):
     """
-    Fiş görselini Tesseract OCR ile analiz ederek mağaza adı/tutar/tarih/kategori çıkarır
-    ve harcama oluşturur (tamamen yerel, ücretsiz).
+    Fiş görselini OCR ile okuyup mağaza adı/tutar/tarih/kategori çıkarır ve harcama oluşturur.
+    Motor: OCR_ENGINE (.env) — varsayılan auto: EasyOCR (varsa), aksi halde Tesseract.
     """
     # Bazı istemciler (özellikle multipart attach) content_type'ı boş veya
     # image/* yerine application/octet-stream gönderebilir.
@@ -274,6 +461,8 @@ async def create_expense_from_receipt(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid user id. Please login/register again.")
+
+    _ensure_ocr_available()
 
     try:
         raw = await receipt.read()
@@ -294,7 +483,7 @@ async def create_expense_from_receipt(
                 (max(1, int(w * ratio)), max(1, int(h * ratio))),
                 Image.Resampling.LANCZOS,
             )
-        ocr_text = _receipt_image_to_ocr_text(image)
+        ocr_text = await asyncio.to_thread(_receipt_image_to_ocr_text, image)
     except HTTPException:
         raise
     except Exception as e:

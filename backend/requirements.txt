@@ -9,6 +9,10 @@ anyio==4.13.0
 bcrypt==5.0.0
 cffi==2.0.0
 click==8.3.3
+# Fiş OCR: EasyOCR (PyTorch; ilk kurulum büyük olabilir). İstemezsen OCR_ENGINE=tesseract veya ocrspace kullan.
+# python-bidi 0.5+ Rust ister (Windows'ta kolay kırılır); 0.4.x wheel ile kurulur.
+python-bidi>=0.4.2,<0.5
+easyocr>=1.7.0
 colorama==0.4.6
 cryptography==48.0.0
 fastapi==0.136.1

@@ -31,6 +31,7 @@ class DashboardController extends Controller
         $recentMonths = [];
         $monthPage = max((int) $request->query('m_page', 1), 1);
         $perMonthPage = 12;
+        $monthTotalPages = 1;
         try {
             $monthly = $this->api->getMonthlyTotal($userId, $now->year, $now->month);
 
@@ -62,8 +63,8 @@ class DashboardController extends Controller
                 krsort($byMonth); // en yeni aylar önce
                 $allMonths = array_values($byMonth);
                 $totalMonths = count($allMonths);
-                $totalPages = (int) ceil($totalMonths / $perMonthPage);
-                $monthPage = min($monthPage, max($totalPages, 1));
+                $monthTotalPages = max(1, (int) ceil($totalMonths / $perMonthPage));
+                $monthPage = min($monthPage, $monthTotalPages);
                 $offset = ($monthPage - 1) * $perMonthPage;
                 $recentMonths = array_slice($allMonths, $offset, $perMonthPage);
             }
@@ -72,13 +73,14 @@ class DashboardController extends Controller
         }
 
         return view('dashboard', [
-            'userName'       => $request->session()->get('user_name'),
-            'monthly'        => $monthly,
-            'currentYear'    => $now->year,
-            'currentMonth'   => $now->month,
-            'recentMonths'   => $recentMonths,
-            'monthPage'      => $monthPage,
-            'perMonthPage'   => $perMonthPage,
+            'userName'         => $request->session()->get('user_name'),
+            'monthly'          => $monthly,
+            'currentYear'      => $now->year,
+            'currentMonth'     => $now->month,
+            'recentMonths'     => $recentMonths,
+            'monthPage'        => $monthPage,
+            'monthTotalPages'  => $monthTotalPages,
+            'perMonthPage'     => $perMonthPage,
         ]);
     }
 

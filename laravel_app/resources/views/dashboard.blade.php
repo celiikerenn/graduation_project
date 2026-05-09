@@ -148,22 +148,24 @@
                 </div>
             @endforeach
         </div>
-        @php
-            $totalMonths = isset($recentMonthsTotal) ? $recentMonthsTotal : null;
-        @endphp
-        <div style="margin-top:0.75rem; display:flex; gap:0.5rem;">
-            @if($monthPage > 1)
-                <a href="{{ route('dashboard', ['m_page' => $monthPage - 1]) }}"
-                   class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.85rem;">
-                    ‹ Previous
-                </a>
-            @endif
-            @if(isset($recentMonths[0]) && count($recentMonths) === ($perMonthPage ?? 12))
-                <a href="{{ route('dashboard', ['m_page' => $monthPage + 1]) }}"
-                   class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.85rem;">
-                    Next ›
-                </a>
-            @endif
+        <div style="margin-top:0.75rem;">
+            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                @if($monthPage > 1)
+                    <a href="{{ route('dashboard', ['m_page' => $monthPage - 1]) }}"
+                       class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.85rem;">
+                        ‹ Previous
+                    </a>
+                @endif
+                @if(isset($recentMonths[0]) && count($recentMonths) === ($perMonthPage ?? 12))
+                    <a href="{{ route('dashboard', ['m_page' => $monthPage + 1]) }}"
+                       class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.85rem;">
+                        Next ›
+                    </a>
+                @endif
+            </div>
+            <p style="margin:0.45rem 0 0; font-size:1.05rem; color:var(--txt2); font-weight:bold; font-variant-numeric: tabular-nums;">
+                {{ $monthPage }} of {{ $monthTotalPages ?? 1 }}
+            </p>
         </div>
     </div>
 @endif
