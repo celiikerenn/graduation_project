@@ -478,7 +478,7 @@
     const phrases = [
         'Know where every ₺ goes.',
         'Budget smarter, not harder.',
-        'Receipt in—insight out.',
+        'See spending at a glance.',
         'Your money, mapped clearly.',
         'Small habits. Big clarity.',
     ];

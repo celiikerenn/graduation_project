@@ -23,11 +23,8 @@ class Settings(BaseSettings):
         default="finance_tracker",
         validation_alias=AliasChoices("MYSQL_DB", "MYSQL_DATABASE"),
     )
-    TESSERACT_CMD: str = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-    # OCR motoru: auto (EasyOCR varsa onu, yoksa Tesseract) | easyocr | tesseract | ocrspace
-    OCR_ENGINE: str = "auto"
-    # OCR.space ücretsiz anahtar: https://ocr.space/ocrapi — boş bırakılırsa test anahtarı (düşük kota)
-    OCRSPACE_API_KEY: str = ""
+
+    GEMINI_API_KEY: str = "AIzaSyCrG0FCaqrZQ-Q6CMFTZCtKoaq2xhFhPsc"
 
     @property
     def database_url(self) -> str:

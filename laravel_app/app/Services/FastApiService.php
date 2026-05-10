@@ -49,34 +49,6 @@ class FastApiService
     }
 
     /**
-     * Fiş görselinden Tesseract (Python/pytesseract, yerel OCR) ile metin okuyup harcama oluşturur.
-     * Harici yapay zeka API’si kullanılmaz; işlem FastAPI backend üzerindedir.
-     *
-     * @param int $userId
-     * @param string $filePath Uploaded temp file path
-     * @param string $originalName Uploaded original filename
-     * @return array
-     */
-    public function createExpenseFromReceipt(
-        int $userId,
-        string $filePath,
-        string $originalName
-    ): array {
-        $request = Http::timeout(120)
-            ->attach('receipt', fopen($filePath, 'r'), $originalName);
-
-        $payload = [
-            ['name' => 'user_id', 'contents' => (string) $userId],
-        ];
-
-        $response = $request->post("{$this->baseUrl}/api/expenses/ocr-create", $payload);
-        $this->logIfError($response, 'createExpenseFromReceipt');
-        $response->throw();
-
-        return $response->json();
-    }
-
-    /**
      * Kullanıcının harcama listesini getirir.
      *
      * @param int $userId
@@ -265,6 +237,67 @@ class FastApiService
         $response->throw();
 
         return $response->json();
+    }
+
+    /**
+     * Fiş görselini FastAPI Gemini endpoint'ine gönderir (multipart).
+     *
+     * @return array merchant_name, date, total, category, items
+     */
+    public function analyzeReceipt(string $absolutePath, string $originalFilename): array
+    {
+        $defaults = [
+            'merchant_name' => '',
+            'date' => '',
+            'total' => 0.0,
+            'category' => 'Other',
+            'items' => [],
+        ];
+
+        $attachName = $originalFilename ?: 'receipt.jpg';
+        try {
+            $response = Http::timeout(120)
+                ->attach('receipt', file_get_contents($absolutePath), $attachName)
+                ->post("{$this->baseUrl}/api/expenses/receipt-analyze");
+
+            $this->logIfError($response, 'analyzeReceipt');
+            if (! $response->successful()) {
+                return $defaults;
+            }
+
+            $json = $response->json();
+            if (! \is_array($json)) {
+                return $defaults;
+            }
+
+            $items = $json['items'] ?? [];
+            if (! \is_array($items)) {
+                $items = [];
+            }
+
+            $normalizedItems = [];
+            foreach ($items as $row) {
+                if (! \is_array($row)) {
+                    continue;
+                }
+                $normalizedItems[] = [
+                    'name' => isset($row['name']) ? (string) $row['name'] : '',
+                    'price' => isset($row['price']) ? (float) $row['price'] : 0.0,
+                ];
+            }
+
+            return [
+                'merchant_name' => isset($json['merchant_name']) ? (string) $json['merchant_name'] : '',
+                'date' => isset($json['date']) ? (string) $json['date'] : '',
+                'total' => isset($json['total']) ? (float) $json['total'] : 0.0,
+                'category' => isset($json['category']) ? (string) $json['category'] : 'Other',
+                'items' => $normalizedItems,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('analyzeReceipt exception', ['message' => $e->getMessage()]);
+
+            return $defaults;
+        }
     }
 
     private function logIfError($response, string $method): void

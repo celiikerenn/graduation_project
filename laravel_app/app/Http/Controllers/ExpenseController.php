@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -44,6 +45,27 @@ class ExpenseController extends Controller
         ]);
     }
 
+    /**
+     * Fiş görselini FastAPI üzerinden analiz ettirir (JSON).
+     */
+    public function analyzeReceipt(Request $request): JsonResponse
+    {
+        $userId = $request->session()->get('user_id');
+        if (! $userId) {
+            return response()->json(['message' => 'Unauthorized.'], 401);
+        }
+
+        $request->validate([
+            'receipt' => 'required|image|max:12288',
+        ]);
+
+        /** @var \Illuminate\Http\UploadedFile $file */
+        $file = $request->file('receipt');
+        $data = $this->api->analyzeReceipt($file->getRealPath(), $file->getClientOriginalName() ?: 'receipt.jpg');
+
+        return response()->json($data);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $userId = $request->session()->get('user_id');
@@ -69,33 +91,6 @@ class ExpenseController extends Controller
         }
 
         return redirect()->route('expenses.index')->with('success', 'Expense created.');
-    }
-
-    public function storeFromReceipt(Request $request): RedirectResponse
-    {
-        $userId = $request->session()->get('user_id');
-        if (!$userId) {
-            return redirect()->route('login');
-        }
-
-        $request->validate([
-            'receipt' => 'required|file|image|max:5120',
-        ]);
-
-        try {
-            $file = $request->file('receipt');
-            $this->api->createExpenseFromReceipt(
-                $userId,
-                $file->getRealPath(),
-                $file->getClientOriginalName()
-            );
-        } catch (\Illuminate\Http\Client\RequestException $e) {
-            $body = $e->response->json();
-            $message = $body['detail'] ?? 'Failed to parse receipt.';
-            return back()->withErrors(['receipt' => $message])->withInput();
-        }
-
-        return redirect()->route('expenses.index')->with('success', 'Receipt parsed and expense created.');
     }
 
     public function storeMonthlyFixedExpenses(Request $request): RedirectResponse

@@ -310,7 +310,7 @@
             <div class="empty-state__icon" aria-hidden="true">📋</div>
             <p class="empty-state__title">No expenses yet</p>
             <p class="empty-state__text">
-                Start tracking by adding a manual entry or upload a receipt on the add expense page.
+                Start tracking by adding an expense on the add expense page.
             </p>
             <p style="margin:1rem 0 0;">
                 <a href="{{ route('expenses.create') }}" class="btn btn-primary">Add your first expense</a>

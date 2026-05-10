@@ -24,7 +24,8 @@ Route::middleware('web')->group(function () {
     Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
     Route::get('/expenses/create', [ExpenseController::class, 'create'])->name('expenses.create');
     Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
-    Route::post('/expenses/ocr', [ExpenseController::class, 'storeFromReceipt'])->name('expenses.ocr.store');
+    Route::post('/expenses/receipt-analyze', [ExpenseController::class, 'analyzeReceipt'])
+        ->name('expenses.receipt.analyze');
     Route::post('/expenses/fixed-monthly', [ExpenseController::class, 'storeMonthlyFixedExpenses'])->name('expenses.fixed-monthly.store');
     Route::get('/expenses/{expenseId}/edit', [ExpenseController::class, 'edit'])->name('expenses.edit');
     Route::put('/expenses/{expenseId}', [ExpenseController::class, 'update'])->name('expenses.update');

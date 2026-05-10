@@ -7,7 +7,7 @@ Graduation project: a **personal expense tracking** web application. The **Larav
 | Layer        | Stack        | Role |
 |-------------|--------------|------|
 | Web UI      | Laravel 12, PHP 8.2 | Sessions, Blade views, PDF/CSV reports |
-| API & domain| FastAPI, SQLAlchemy   | Auth, expenses, categories, receipt OCR |
+| API & domain| FastAPI, SQLAlchemy   | Auth, expenses, categories |
 | Database    | MySQL                 | Users, expenses, categories |
 
 Default local URLs:
@@ -19,7 +19,6 @@ Default local URLs:
 
 - Register / login (session-based)
 - Dashboard, charts, expense list with filters, create/edit/delete
-- Receipt upload with **OCR** (EasyOCR varsayılan `auto`; Tesseract veya OCR.space alternatifleri — `backend` `.env` içinde `OCR_ENGINE`)
 - Monthly reports (CSV/PDF), profile and budget settings
 
 ## Repository layout
@@ -28,7 +27,7 @@ Default local URLs:
 graduation_project/
 ├── backend/          # FastAPI service (Python)
 │   ├── .env.example
-│   └── app/          # routers, models, OCR helpers
+│   └── app/          # routers, models
 ├── laravel_app/      # Laravel web application
 │   ├── .env.example
 │   └── ...
@@ -40,8 +39,6 @@ graduation_project/
 - **PHP** ^8.2, **Composer**
 - **Python** 3.11+ (recommended)
 - **MySQL** (e.g. XAMPP) and an empty database (e.g. `finance_tracker`)
-- **EasyOCR** (Python `pip`; varsayılan, fiş fotoğraflarında genelde Tesseract’tan iyi) **veya** **Tesseract** (`OCR_ENGINE=tesseract`)—[Windows builds](https://github.com/UB-Mannheim/tesseract/wiki). PyTorch istemezsen `OCR_ENGINE=ocrspace` + ücretsiz [OCR.space](https://ocr.space/ocrapi) anahtarı kullanılabilir.
-
 ## Backend (FastAPI)
 
 ```bash
@@ -50,7 +47,7 @@ python -m venv .venv
 # Windows:
 .\.venv\Scripts\pip install -r requirements.txt
 copy .env.example .env
-# Edit .env: MYSQL_*, OCR_ENGINE (auto|easyocr|tesseract|ocrspace), OCRSPACE_API_KEY (ocrspace için), TESSERACT_CMD (tesseract yolunda)
+# Edit .env: MYSQL_* (bkz. backend/.env.example)
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
