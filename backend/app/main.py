@@ -6,7 +6,7 @@ Laravel sadece HTTP istekleri ile bu API'yi kullanır.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import expenses, categories, auth
+from app.routers import expenses, categories, auth, receipts
 from app.database import Base, engine, SessionLocal
 import app.models_db  # noqa: F401  (Base metadata'ya modelleri kaydetmek için)
 
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(expenses.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(receipts.router, prefix="/api")
 
 DEFAULT_CATEGORIES = [
     "Food",

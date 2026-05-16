@@ -28,9 +28,6 @@
     .chart-empty {
         margin-top: 0.5rem;
     }
-    [data-theme="dark"] .chart-card {
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.2);
-    }
 </style>
 @endpush
 
@@ -40,19 +37,11 @@
     View charts and spending insights in one place. Use month selector to update category analytics.
 </p>
 
-@if(!empty($availableMonths))
-    <form method="GET" action="{{ route('charts') }}" style="margin-bottom:1rem; display:flex; gap:0.5rem; align-items:center;">
-        <label for="month" style="font-size:0.9rem; color:var(--txt2);">Month:</label>
-        <select id="month" name="month" onchange="this.form.submit()"
-                style="padding:0.3rem 0.5rem; border-radius:8px; border:1px solid var(--border2); font-size:0.9rem; background:var(--surface2); color:var(--txt);">
-            @foreach($availableMonths as $month)
-                <option value="{{ $month }}" {{ $selectedMonth === $month ? 'selected' : '' }}>
-                    {{ $month }}
-                </option>
-            @endforeach
-        </select>
-    </form>
-@endif
+@include('partials.month-filter', [
+    'months' => $availableMonths ?? [],
+    'selected' => $selectedMonth ?? null,
+    'action' => route('charts'),
+])
 
 <div class="charts-grid">
     <div class="chart-card" style="grid-column:1 / -1;">
@@ -197,9 +186,7 @@
     }
 
     function sliceOutlineRgba() {
-        return document.documentElement.getAttribute('data-theme') === 'dark'
-            ? 'rgba(241, 245, 249, 0.12)'
-            : 'rgba(15, 23, 42, 0.1)';
+        return 'rgba(15, 23, 42, 0.1)';
     }
 
     function buildPalette(labels) {
@@ -211,9 +198,7 @@
     }
 
     function gridLineColor() {
-        return document.documentElement.getAttribute('data-theme') === 'dark'
-            ? 'rgba(148, 163, 184, 0.12)'
-            : 'rgba(15, 23, 42, 0.06)';
+        return 'rgba(15, 23, 42, 0.06)';
     }
 
     function applyChartDefaults() {
@@ -381,7 +366,6 @@
             window._appChartInstances.push(barChart);
         }
 
-        document.addEventListener('app-theme-changed', refreshAllCharts);
     });
 </script>
 @endpush

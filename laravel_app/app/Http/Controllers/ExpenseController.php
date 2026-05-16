@@ -17,6 +17,18 @@ class ExpenseController extends Controller
         return [];
     }
 
+    private function parseFilterDate(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        try {
+            return \Carbon\Carbon::createFromFormat('Y-m-d', $value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public function __construct(
         protected FastApiService $api
     ) {}
@@ -159,6 +171,12 @@ class ExpenseController extends Controller
 
         $page    = max((int) $request->query('page', 1), 1);
         $perPage = 10;
+        $categories = [];
+        $filters = [
+            'date_from'   => '',
+            'date_to'     => '',
+            'category_id' => '',
+        ];
         $months = [];
         $selectedMonth = null;
         $data = [
@@ -167,15 +185,17 @@ class ExpenseController extends Controller
             'page'          => $page,
             'perPage'       => $perPage,
             'totalPages'    => 1,
+            'categories'    => [],
             'months'        => [],
             'selectedMonth' => null,
+            'filters'       => $filters,
         ];
         try {
-            // Tüm harcamalardan (ilk 200) ay listesi ve filtreleme
+            $categories = $this->api->listCategories();
+
             $apiData = $this->api->listExpenses($userId, 0, 200);
             $allExpenses = $apiData['expenses'] ?? [];
 
-            // Ay listesi
             $byMonth = [];
             foreach ($allExpenses as $expense) {
                 if (empty($expense['expense_date'])) {
@@ -187,25 +207,51 @@ class ExpenseController extends Controller
             $months = array_keys($byMonth);
             sort($months);
 
-            // Seçili ay: ?month=YYYY-MM, yoksa en yeni ay
-            $selectedMonth = $request->query('month');
-            if (empty($selectedMonth) || !in_array($selectedMonth, $months, true)) {
-                $selectedMonth = !empty($months) ? end($months) : null;
+            $defaultMonth = !empty($months) ? end($months) : null;
+
+            $hasExtraFilters = $request->has('date_from')
+                || $request->has('date_to')
+                || $request->has('category_id');
+
+            $selectedMonth = null;
+            if (!$hasExtraFilters) {
+                $selectedMonth = $request->query('month');
+                if (empty($selectedMonth) || !in_array($selectedMonth, $months, true)) {
+                    $selectedMonth = $defaultMonth;
+                }
             }
 
-            // Seçili aya göre filtrele
+            $dateFrom = $hasExtraFilters ? $this->parseFilterDate($request->query('date_from')) : null;
+            $dateTo = $hasExtraFilters ? $this->parseFilterDate($request->query('date_to')) : null;
+            $categoryId = ($hasExtraFilters && $request->filled('category_id'))
+                ? (int) $request->query('category_id')
+                : null;
+
+            if ($dateFrom !== null && $dateTo !== null && $dateFrom > $dateTo) {
+                [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+            }
+
             $filtered = [];
-            if ($selectedMonth !== null) {
-                foreach ($allExpenses as $expense) {
-                    if (empty($expense['expense_date'])) {
-                        continue;
-                    }
-                    $monthKey = \Carbon\Carbon::parse($expense['expense_date'])->format('Y-m');
-                    if ($monthKey !== $selectedMonth) {
-                        continue;
-                    }
-                    $filtered[] = $expense;
+            foreach ($allExpenses as $expense) {
+                if (empty($expense['expense_date'])) {
+                    continue;
                 }
+                $expenseDate = \Carbon\Carbon::parse($expense['expense_date'])->format('Y-m-d');
+                $monthKey = \Carbon\Carbon::parse($expense['expense_date'])->format('Y-m');
+
+                if (!$hasExtraFilters && $selectedMonth !== null && $monthKey !== $selectedMonth) {
+                    continue;
+                }
+                if ($dateFrom !== null && $expenseDate < $dateFrom) {
+                    continue;
+                }
+                if ($dateTo !== null && $expenseDate > $dateTo) {
+                    continue;
+                }
+                if ($categoryId !== null && (int) ($expense['category_id'] ?? 0) !== $categoryId) {
+                    continue;
+                }
+                $filtered[] = $expense;
             }
 
             $total      = count($filtered);
@@ -215,13 +261,21 @@ class ExpenseController extends Controller
             $pageItems  = array_slice($filtered, $offset, $perPage);
 
             $data = [
-                'expenses'      => $pageItems,
-                'total'         => $total,
-                'page'          => $page,
-                'perPage'       => $perPage,
-                'totalPages'    => $totalPages,
-                'months'        => $months,
-                'selectedMonth' => $selectedMonth,
+                'expenses'       => $pageItems,
+                'total'          => $total,
+                'page'           => $page,
+                'perPage'        => $perPage,
+                'totalPages'     => $totalPages,
+                'categories'     => $categories,
+                'months'         => $months,
+                'selectedMonth'  => $selectedMonth,
+                'defaultMonth'   => $defaultMonth,
+                'filtersActive'  => $hasExtraFilters,
+                'filters'        => [
+                    'date_from'   => $hasExtraFilters ? ($request->query('date_from') ?? '') : '',
+                    'date_to'     => $hasExtraFilters ? ($request->query('date_to') ?? '') : '',
+                    'category_id' => $categoryId !== null ? (string) $categoryId : '',
+                ],
             ];
         } catch (\Throwable $e) {
             // API hata verirse boş liste

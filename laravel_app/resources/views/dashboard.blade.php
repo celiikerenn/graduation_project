@@ -53,8 +53,7 @@
         @if(!empty($monthly))
             <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
                 <div style="flex:1 1 0; min-width:150px;">
-                    <a href="{{ route('profile.budget.show') }}" style="text-decoration:none; color:inherit; display:block; height:100%;">
-                        <div style="background:var(--surface); border-radius:16px; border:1px solid var(--border); padding:14px; text-align:center; height:100%; display:flex; flex-direction:column; justify-content:center; cursor:pointer; box-shadow:none !important; filter:none !important;">
+                    <div style="background:var(--surface); border-radius:16px; border:1px solid var(--border); padding:14px; text-align:center; height:100%; display:flex; flex-direction:column; justify-content:center; box-shadow:none !important; filter:none !important;">
                             <div class="section-label" style="margin-bottom:0.15rem;">
                                 Total budget
                             </div>
@@ -65,11 +64,10 @@
                                     N/A
                                 @endif
                             </div>
-                            <div style="font-size:12px; color:var(--muted); margin-top:0.15rem;">
-                                Click to edit
-                            </div>
+                            <p style="margin:0.35rem 0 0; font-size:12px; color:var(--muted);">
+                                <a href="{{ route('profile.show') }}#monthly-budget" style="color:var(--acc); font-weight:600; text-decoration:none;">Configure in Settings</a>
+                            </p>
                         </div>
-                    </a>
                 </div>
                 <div style="flex:1 1 0; min-width:150px;">
                     <div style="background:var(--surface); border-radius:16px; border:1px solid var(--border); padding:14px; text-align:center; height:100%; display:flex; flex-direction:column; justify-content:center; box-shadow:none !important; filter:none !important;">
@@ -170,7 +168,6 @@
     </div>
 @endif
 @endsection
-
 @push('scripts')
 <script>
 (() => {
@@ -247,4 +244,5 @@
 })();
 </script>
 @endpush
+
 

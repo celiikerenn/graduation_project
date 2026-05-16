@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ReceiptScanController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportsController;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,10 @@ Route::middleware('web')->group(function () {
     Route::get('/charts', [DashboardController::class, 'charts'])->name('charts');
     Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
     Route::get('/expenses/create', [ExpenseController::class, 'create'])->name('expenses.create');
+    Route::get('/expenses/receipt-scan', [ReceiptScanController::class, 'show'])->name('expenses.receipt-scan');
+    Route::post('/expenses/receipt-scan', [ReceiptScanController::class, 'store'])->name('expenses.receipt-scan.store');
+    Route::post('/expenses/receipt-scan/confirm', [ReceiptScanController::class, 'confirm'])->name('expenses.receipt-scan.confirm');
+    Route::post('/expenses/receipt-scan/discard', [ReceiptScanController::class, 'discard'])->name('expenses.receipt-scan.discard');
     Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
     Route::post('/expenses/fixed-monthly', [ExpenseController::class, 'storeMonthlyFixedExpenses'])->name('expenses.fixed-monthly.store');
     Route::get('/expenses/{expenseId}/edit', [ExpenseController::class, 'edit'])->name('expenses.edit');
@@ -30,6 +35,8 @@ Route::middleware('web')->group(function () {
     Route::delete('/expenses/{expenseId}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::get('/reports/download-all/csv.zip', [ReportsController::class, 'downloadAllCsvZip'])->name('reports.download-all-csv');
+    Route::get('/reports/download-all/pdf.zip', [ReportsController::class, 'downloadAllPdfZip'])->name('reports.download-all-pdf');
     Route::get('/reports/{year}/{month}.csv', [ReportsController::class, 'downloadCsv'])->name('reports.csv');
     Route::get('/reports/{year}/{month}.pdf', [ReportsController::class, 'downloadPdf'])->name('reports.pdf');
 

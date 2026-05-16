@@ -92,3 +92,16 @@ class CategoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------- Receipt OCR ----------
+class ReceiptScanResponse(BaseModel):
+    """OCR sonucu — Laravel onay formunu doldurur."""
+    user_id: int
+    raw_text: str = ""
+    amount: Optional[float] = None
+    expense_date: Optional[str] = None  # ISO date YYYY-MM-DD
+    description: Optional[str] = None
+    category_name: Optional[str] = None
+    confidence: str = "low"
+    message: str = ""

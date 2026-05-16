@@ -11,7 +11,7 @@
 
         <div class="form-group">
             <label for="category_id">Category</label>
-            <select id="category_id" name="category_id" required>
+            <select id="category_id" name="category_id" class="select-control select-enhanced" required>
                 <option value="">Select</option>
                 @foreach($categories as $cat)
                     <option value="{{ $cat['id'] }}"
@@ -32,9 +32,13 @@
 
         <div class="form-group">
             <label for="expense_date">Expense Date</label>
-            <input type="date" id="expense_date" name="expense_date"
-                   max="{{ date('Y-m-d') }}"
-                   value="{{ old('expense_date', $expense['expense_date']) }}" required>
+            @include('partials.date-input', [
+                'id' => 'expense_date',
+                'name' => 'expense_date',
+                'value' => old('expense_date', $expense['expense_date']),
+                'max' => date('Y-m-d'),
+                'required' => true,
+            ])
             @error('expense_date') <div class="text-danger">{{ $message }}</div> @enderror
         </div>
 

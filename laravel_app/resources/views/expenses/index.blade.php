@@ -19,7 +19,6 @@
     .expenses-table col.col-created { width: 9.5rem; }
     .expenses-table col.col-actions { width: 11.5rem; }
     .expenses-table .cell-id {
-        font-family: 'DM Mono', monospace;
         font-size: 12px;
         color: var(--muted);
     }
@@ -46,26 +45,35 @@
         border-bottom: 1px solid var(--border);
     }
     .expenses-table tbody tr:last-child td { border-bottom: none; }
-    .amount-cell { font-family: 'DM Mono', monospace; font-weight: 600; color: var(--txt); }
-    .date-cell { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+    .amount-cell { font-weight: 600; color: var(--txt); }
+    .date-cell { font-size: 12px; color: var(--muted); }
+    .expenses-table td.expense-actions-cell {
+        vertical-align: middle;
+    }
     .expense-actions {
-        display:flex;
-        align-items:center;
-        gap:8px;
-        justify-content:flex-end;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 4.75rem 4.75rem;
+        gap: 8px;
+        justify-content: end;
+        justify-items: stretch;
+        width: fit-content;
+        margin-left: auto;
     }
     .expense-actions .btn {
         border-radius: 8px;
-        padding: 6px 10px;
+        padding: 0 8px;
         font-size: 12px;
         font-weight: 600;
+        line-height: 1;
+        height: 2rem;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         box-shadow: none !important;
         transform: none !important;
-        min-width: auto;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         gap: 0.35rem;
         white-space: nowrap;
     }
@@ -153,6 +161,81 @@
         background: rgba(220, 38, 38, 0.2);
         color: #991b1b;
     }
+
+    .expenses-page-layout {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    .expenses-filter-sidebar {
+        flex: 0 0 232px;
+        width: 232px;
+        position: sticky;
+        top: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .expenses-month-picker__note {
+        margin: 0.5rem 0 0;
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.4;
+    }
+    .expenses-month-picker select:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+    .expenses-filter-sidebar .filter-toolbar {
+        margin-bottom: 0;
+    }
+    .expenses-filter-sidebar .expenses-filters-panel {
+        overflow: visible;
+        min-height: 22rem;
+        display: flex;
+        flex-direction: column;
+    }
+    .expenses-filter-sidebar .expenses-filters-panel .expenses-filter__form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+        align-items: stretch;
+        flex: 1;
+    }
+    .expenses-filter-sidebar .expenses-filters-panel .expenses-filter__actions {
+        flex-direction: column;
+        align-items: stretch;
+        margin-top: auto;
+        padding-top: 0.35rem;
+    }
+    .expenses-filter-sidebar .expenses-filters-panel .expenses-filter__actions .btn {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+    .expenses-main {
+        flex: 1;
+        min-width: 0;
+    }
+    @media (max-width: 960px) {
+        .expenses-page-layout {
+            flex-direction: column;
+        }
+        .expenses-filter-sidebar {
+            width: 100%;
+            flex: none;
+            position: static;
+        }
+        .expenses-filter-sidebar .expenses-filters-panel .expenses-filter__actions {
+            flex-direction: row;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+        .expenses-filter-sidebar .expenses-filters-panel .expenses-filter__actions .btn {
+            width: auto;
+            flex: 1 1 auto;
+        }
+    }
 </style>
 @endpush
 
@@ -162,24 +245,21 @@
     Review, edit or delete your past expenses. Use this list to keep your spending history up to date.
 </p>
 
-<div class="card" style="padding:1rem; margin-bottom:1rem;">
-    <form method="GET" action="{{ route('expenses.index') }}" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-        <label for="month" style="font-size:0.9rem; color:var(--txt2);">Month:</label>
-        <select id="month" name="month" onchange="this.form.submit()"
-                style="padding:0.3rem 0.5rem; border-radius:8px; font-size:0.9rem;">
-            @if(!empty($months ?? []))
-                @foreach($months as $month)
-                    <option value="{{ $month }}" {{ ($selectedMonth ?? null) === $month ? 'selected' : '' }}>
-                        {{ $month }}
-                    </option>
-                @endforeach
-            @endif
-        </select>
-    </form>
-</div>
+<div class="expenses-page-layout">
+    <aside class="expenses-filter-sidebar" aria-label="Expense browsing">
+        @include('partials.expenses-month-picker', [
+            'months' => $months ?? [],
+            'selectedMonth' => $selectedMonth ?? null,
+            'filtersActive' => $filtersActive ?? false,
+        ])
+        @include('partials.expenses-filter', [
+            'categories' => $categories ?? [],
+            'defaultMonth' => $defaultMonth ?? null,
+            'filters' => $filters ?? [],
+        ])
+    </aside>
 
-<p><a href="{{ route('expenses.create') }}" class="btn btn-primary">Add New Expense</a></p>
-
+    <div class="expenses-main">
 <div class="card expenses-table-wrap">
     @if(count($expenses) > 0)
         <table class="expenses-table">
@@ -233,7 +313,7 @@
                             {{ number_format($e['amount'], 2, ',', '.') }} {{ $currencySymbol }}
                         </td>
                         <td class="date-cell">{{ \Carbon\Carbon::parse($e['created_at'])->format('d.m.Y H:i') }}</td>
-                        <td>
+                        <td class="expense-actions-cell">
                             <div class="expense-actions">
                                 <a class="btn btn-expense-edit" href="{{ route('expenses.edit', $e['id']) }}" title="Edit expense" aria-label="Edit expense">
                                     <span aria-hidden="true">✏</span> Edit
@@ -263,12 +343,24 @@
             @php
                 $current = $page ?? 1;
                 $last = $totalPages ?? 1;
+                $paginationQuery = array_filter(
+                    ($filtersActive ?? false)
+                        ? [
+                            'date_from' => $filters['date_from'] ?? null,
+                            'date_to' => $filters['date_to'] ?? null,
+                            'category_id' => $filters['category_id'] ?? null,
+                        ]
+                        : [
+                            'month' => $selectedMonth ?? null,
+                        ],
+                    fn ($v) => $v !== null && $v !== ''
+                );
             @endphp
             <nav aria-label="Pagination" style="margin-top:0.75rem;" class="expenses-pagination">
                 <ul style="list-style:none; padding-left:0; display:flex; gap:0.35rem; flex-wrap:wrap;">
                     @if($current > 1)
                         <li>
-                            <a href="{{ route('expenses.index', ['page' => $current - 1, 'month' => $selectedMonth ?? null]) }}"
+                            <a href="{{ route('expenses.index', array_merge($paginationQuery, ['page' => $current - 1])) }}"
                                class="btn btn-secondary"
                                style="padding:0.25rem 0.6rem; font-size:0.85rem; border-radius:999px;">
                                 ‹ Prev
@@ -284,7 +376,7 @@
                                     {{ $p }}
                                 </span>
                             @else
-                                <a href="{{ route('expenses.index', ['page' => $p, 'month' => $selectedMonth ?? null]) }}"
+                                <a href="{{ route('expenses.index', array_merge($paginationQuery, ['page' => $p])) }}"
                                    class="btn btn-secondary"
                                    style="padding:0.25rem 0.6rem; font-size:0.85rem; border-radius:999px;">
                                     {{ $p }}
@@ -295,7 +387,7 @@
 
                     @if($current < $last)
                         <li>
-                            <a href="{{ route('expenses.index', ['page' => $current + 1, 'month' => $selectedMonth ?? null]) }}"
+                            <a href="{{ route('expenses.index', array_merge($paginationQuery, ['page' => $current + 1])) }}"
                                class="btn btn-secondary"
                                style="padding:0.25rem 0.6rem; font-size:0.85rem; border-radius:999px;">
                                 Next ›
@@ -310,13 +402,16 @@
             <div class="empty-state__icon" aria-hidden="true">📋</div>
             <p class="empty-state__title">No expenses yet</p>
             <p class="empty-state__text">
-                Start tracking by adding an expense on the add expense page.
-            </p>
-            <p style="margin:1rem 0 0;">
-                <a href="{{ route('expenses.create') }}" class="btn btn-primary">Add your first expense</a>
+                @if(!empty($filtersActive))
+                    No expenses match the current filters. Try adjusting them or use <strong>Clear</strong>.
+                @else
+                    No expenses for this month. Try another month from the selector above.
+                @endif
             </p>
         </div>
     @endif
+</div>
+    </div>
 </div>
 
 <div id="expense-delete-modal" class="expense-delete-modal" aria-hidden="true" role="dialog" aria-labelledby="expense-delete-title">

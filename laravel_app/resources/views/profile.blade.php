@@ -4,11 +4,47 @@
 
 @push('styles')
 <style>
+    .settings-layout {
+        display: grid;
+        grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+        gap: 1rem;
+        margin-top: 1rem;
+        align-items: start;
+    }
+    .settings-layout__stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        min-width: 0;
+    }
+    .settings-panel h2 {
+        margin-top: 0;
+        margin-bottom: 0.75rem;
+        font-size: 1.05rem;
+    }
+    .settings-panel__hint {
+        margin-top: 0;
+        margin-bottom: 0.85rem;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.45;
+    }
+    .settings-panel--fixed {
+        min-height: 100%;
+    }
+    .settings-panel--fixed h2 {
+        font-size: 1.15rem;
+    }
     .fixed-template-row {
-        display:grid;
-        grid-template-columns: 1fr 1fr 1.2fr auto;
-        gap:0.5rem;
-        margin-bottom:0.6rem;
+        display: grid;
+        grid-template-columns: 1.15fr 0.95fr 1.35fr auto;
+        gap: 0.65rem;
+        margin-bottom: 0.7rem;
+    }
+    .settings-panel--fixed .fixed-template-row {
+        grid-template-columns: 1.2fr 1fr 1.5fr auto;
+        gap: 0.75rem;
+        margin-bottom: 0.8rem;
     }
     .fixed-template-row select,
     .fixed-template-row input {
@@ -21,25 +57,55 @@
         width: 100%;
         font-family: 'DM Sans', sans-serif;
         transition: border-color 0.2s, box-shadow 0.2s;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+    .settings-panel--fixed .fixed-template-row select,
+    .settings-panel--fixed .fixed-template-row input {
+        padding: 12px 14px;
+        font-size: 15px;
+        border-radius: 11px;
     }
     .fixed-template-row select:focus,
     .fixed-template-row input:focus {
         outline: none;
         border-color: var(--acc);
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
     }
     .fixed-template-remove {
-        min-width: 2.2rem;
-        padding: 0.45rem 0.55rem;
-        border-radius: 8px;
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        background: rgba(239, 68, 68, 0.1);
-        color: #fca5a5;
+        min-width: 2.35rem;
+        min-height: 2.35rem;
+        padding: 0;
+        border-radius: 10px;
+        border: 1px solid rgba(220, 38, 38, 0.25);
+        background: var(--red-light);
+        color: var(--red);
         cursor: pointer;
         font-weight: 700;
+        font-size: 1.1rem;
+        line-height: 1;
     }
-    .fixed-template-remove:hover { background: rgba(239, 68, 68, 0.2); }
+    .settings-panel--fixed .fixed-template-remove {
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        font-size: 1.2rem;
+    }
+    .fixed-template-remove:hover {
+        background: rgba(220, 38, 38, 0.16);
+        border-color: rgba(220, 38, 38, 0.35);
+    }
+    @media (max-width: 900px) {
+        .settings-layout {
+            grid-template-columns: 1fr;
+        }
+        .fixed-template-row,
+        .settings-panel--fixed .fixed-template-row {
+            grid-template-columns: 1fr 1fr;
+        }
+        .fixed-template-row .fixed-template-remove {
+            grid-column: 2;
+            justify-self: end;
+        }
+    }
 </style>
 @endpush
 
@@ -106,35 +172,63 @@
     </div>
 </div>
 
-<div class="card" style="margin-top:1rem;">
-    <h2 style="margin-top:0; margin-bottom:0.75rem;">Preferences</h2>
-    <form method="POST" action="{{ route('profile.currency.update') }}">
-        @csrf
-        <div class="form-group">
-            <label for="currency">Currency</label>
-            <select id="currency" name="currency" required>
-                <option value="TRY" {{ ($currency ?? 'TRY') === 'TRY' ? 'selected' : '' }}>TRY (₺)</option>
-                <option value="USD" {{ ($currency ?? '') === 'USD' ? 'selected' : '' }}>USD ($)</option>
-                <option value="EUR" {{ ($currency ?? '') === 'EUR' ? 'selected' : '' }}>EUR (€)</option>
-                <option value="GBP" {{ ($currency ?? '') === 'GBP' ? 'selected' : '' }}>GBP (£)</option>
-            </select>
+<div class="settings-layout">
+    <div class="settings-layout__stack">
+        <div class="card settings-panel" id="monthly-budget">
+            <h2>Monthly Budget</h2>
+            <p class="settings-panel__hint">
+                Used on the dashboard for budget usage tracking.
+            </p>
+            <form method="POST" action="{{ route('profile.update-budget') }}">
+                @csrf
+                <div class="form-group">
+                    <label for="monthly_budget">Amount ({{ $currencySymbol }})</label>
+                    <input
+                        type="number"
+                        id="monthly_budget"
+                        name="monthly_budget"
+                        step="0.01"
+                        min="0"
+                        value="{{ old('monthly_budget', $monthlyBudget ?? 0) }}"
+                    >
+                    @error('monthly_budget')
+                        <div class="text-danger">{{ $message }}</div>
+                    @enderror
+                </div>
+                <button type="submit" class="btn btn-primary">Save budget</button>
+            </form>
         </div>
-        <button type="submit" class="btn btn-primary">Save</button>
-    </form>
-</div>
 
-<div class="card" style="margin-top:1rem;">
-    <h2 style="margin-top:0; margin-bottom:0.75rem;">Monthly Fixed Expenses</h2>
-    <p style="margin-top:0; margin-bottom:0.8rem; color:var(--muted); font-size:0.9rem;">
-        Configure template rows used by the "Add this month's fixed expenses" button on Add Expense.
-    </p>
-    <form method="POST" action="{{ route('profile.fixed-monthly.templates.update') }}">
+        <div class="card settings-panel">
+            <h2>Preferences</h2>
+            <form method="POST" action="{{ route('profile.currency.update') }}">
+                @csrf
+                <div class="form-group">
+                    <label for="currency">Currency</label>
+                    <select id="currency" name="currency" class="select-control" required>
+                        <option value="TRY" {{ ($currency ?? 'TRY') === 'TRY' ? 'selected' : '' }}>TRY (₺)</option>
+                        <option value="USD" {{ ($currency ?? '') === 'USD' ? 'selected' : '' }}>USD ($)</option>
+                        <option value="EUR" {{ ($currency ?? '') === 'EUR' ? 'selected' : '' }}>EUR (€)</option>
+                        <option value="GBP" {{ ($currency ?? '') === 'GBP' ? 'selected' : '' }}>GBP (£)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card settings-panel settings-panel--fixed">
+        <h2>Monthly Fixed Expenses</h2>
+        <p class="settings-panel__hint">
+            Template rows for the "Add this month's fixed expenses" button on Add Expense.
+        </p>
+        <form method="POST" action="{{ route('profile.fixed-monthly.templates.update') }}">
         @csrf
         @php($rows = old('templates', $fixedTemplates ?? []))
         <div id="fixed-template-rows">
             @foreach($rows as $i => $row)
                 <div class="fixed-template-row" data-fixed-row>
-                    <select name="templates[{{ $i }}][category]">
+                    <select name="templates[{{ $i }}][category]" class="select-enhanced">
                         <option value="">Category</option>
                         @foreach($categories as $cat)
                             <option value="{{ $cat['name'] }}" {{ ($row['category'] ?? '') === $cat['name'] ? 'selected' : '' }}>{{ $cat['name'] }}</option>
@@ -150,8 +244,9 @@
         @error('amount')
             <div class="text-danger" style="margin-bottom:0.5rem;">{{ $message }}</div>
         @enderror
-        <button type="submit" class="btn btn-primary">Save</button>
-    </form>
+        <button type="submit" class="btn btn-primary">Save templates</button>
+        </form>
+    </div>
 </div>
 @endsection
 
@@ -186,7 +281,7 @@
         row.className = 'fixed-template-row';
         row.setAttribute('data-fixed-row', '1');
         row.innerHTML = `
-            <select name="templates[0][category]">
+            <select name="templates[0][category]" class="select-enhanced">
                 ${categoryOptionsHtml()}
             </select>
             <input type="number" step="0.01" min="0.01" name="templates[0][amount]" placeholder="Amount">
@@ -197,8 +292,12 @@
     }
 
     addBtn.addEventListener('click', () => {
-        rowsWrap.appendChild(createRow());
+        const row = createRow();
+        rowsWrap.appendChild(row);
         reindexRows();
+        if (typeof window.initAppSelects === 'function') {
+            window.initAppSelects(row);
+        }
     });
 
     rowsWrap.addEventListener('click', (e) => {
@@ -207,11 +306,18 @@
         if (!target.matches('[data-fixed-remove]')) return;
         const row = target.closest('[data-fixed-row]');
         if (!row) return;
+        const select = row.querySelector('select');
+        if (select?.tomselect) {
+            select.tomselect.destroy();
+        }
         row.remove();
         reindexRows();
     });
 
     reindexRows();
+    if (typeof window.initAppSelects === 'function') {
+        window.initAppSelects(rowsWrap);
+    }
 })();
 </script>
 @endpush

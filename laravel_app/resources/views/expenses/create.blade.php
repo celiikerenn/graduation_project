@@ -5,7 +5,7 @@
 @section('content')
 <h1>Add Expense</h1>
 <p style="margin-top:-0.35rem; margin-bottom:1rem; color:var(--muted); font-size:0.9rem;">
-    Add a spending record with category, amount and date.
+    Enter category, amount and date yourself. To scan a receipt, use <a href="{{ route('expenses.receipt-scan') }}" style="color:var(--acc); font-weight:600;">Receipt Scan</a> in the sidebar.
 </p>
 
 <div class="card" id="manual-expense-box">
@@ -13,7 +13,7 @@
         @csrf
         <div class="form-group">
             <label for="category_id">Category</label>
-            <select id="category_id" name="category_id" required>
+            <select id="category_id" name="category_id" class="select-control select-enhanced" required>
                 <option value="">Select</option>
                 @foreach($categories as $cat)
                     <option value="{{ $cat['id'] }}" {{ old('category_id') == $cat['id'] ? 'selected' : '' }}>{{ $cat['name'] }}</option>
@@ -41,9 +41,13 @@
         </div>
         <div class="form-group">
             <label for="expense_date">Expense Date</label>
-            <input type="date" id="expense_date" name="expense_date"
-                   max="{{ date('Y-m-d') }}"
-                   value="{{ old('expense_date', date('Y-m-d')) }}" required>
+            @include('partials.date-input', [
+                'id' => 'expense_date',
+                'name' => 'expense_date',
+                'value' => old('expense_date', date('Y-m-d')),
+                'max' => date('Y-m-d'),
+                'required' => true,
+            ])
             @error('expense_date') <div class="text-danger">{{ $message }}</div> @enderror
         </div>
         <div class="form-group">
@@ -70,7 +74,7 @@
             <button type="submit" class="btn btn-primary">
                 Save Expense
             </button>
-            <a href="{{ route('expenses.index') }}" class="btn btn-secondary">
+            <a href="{{ route('dashboard') }}" class="btn btn-secondary">
                 Cancel
             </a>
         </div>

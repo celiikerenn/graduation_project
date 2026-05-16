@@ -35,11 +35,12 @@ class ProfileController extends Controller
         }
 
         return view('profile', [
-            'name'          => $request->session()->get('user_name'),
-            'email'         => $request->session()->get('user_email'),
-            'categories'    => $categories,
-            'fixedTemplates'=> $request->session()->get('fixed_expense_templates', $this->defaultFixedTemplates()),
-            'currency'      => Currency::normalize(session('currency')),
+            'name'           => $request->session()->get('user_name'),
+            'email'          => $request->session()->get('user_email'),
+            'categories'     => $categories,
+            'fixedTemplates' => $request->session()->get('fixed_expense_templates', $this->defaultFixedTemplates()),
+            'currency'       => Currency::normalize(session('currency')),
+            'monthlyBudget'  => (float) $request->session()->get('monthly_budget', 0),
         ]);
     }
 
@@ -63,8 +64,8 @@ class ProfileController extends Controller
         $request->session()->put('monthly_budget', $monthlyBudget);
 
         return redirect()
-            ->route('dashboard')
-            ->with('success', 'Budget updated successfully.');
+            ->route('profile.show')
+            ->with('success', 'Monthly budget saved.');
     }
 
     public function showBudget(Request $request): View|RedirectResponse

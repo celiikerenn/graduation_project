@@ -224,6 +224,34 @@ class FastApiService
     }
 
     /**
+     * Receipt image OCR scan via FastAPI.
+     *
+     * @param  \Illuminate\Http\UploadedFile  $uploadedFile
+     * @return array raw_text, amount, expense_date, description, confidence, message
+     */
+    public function scanReceipt(int $userId, $uploadedFile): array
+    {
+        $response = Http::timeout(60)
+            ->attach(
+                'file',
+                file_get_contents($uploadedFile->getRealPath()),
+                $uploadedFile->getClientOriginalName()
+            )
+            ->post("{$this->baseUrl}/api/receipts/scan", [
+                'user_id' => $userId,
+            ]);
+
+        $this->logIfError($response, 'scanReceipt');
+
+        if ($response->failed()) {
+            $detail = $response->json('detail') ?? $response->body();
+            throw new \RuntimeException(is_string($detail) ? $detail : 'Receipt scan failed.');
+        }
+
+        return $response->json();
+    }
+
+    /**
      * Kullanıcının şifresini değiştirir.
      *
      * FastAPI /api/auth/change-password endpoint'ine istek atar.
