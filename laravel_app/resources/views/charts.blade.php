@@ -21,17 +21,10 @@
         position: relative;
         overflow: hidden;
     }
-    .chart-card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, var(--acc), var(--acc2));
-        opacity: 0.9;
-    }
     .chart-card--wide { grid-column: 1 / -1; }
+    .chart-card.chart-card--tips {
+        overflow: visible;
+    }
     .chart-card__head {
         display: flex;
         flex-wrap: wrap;
@@ -49,8 +42,9 @@
     }
     .chart-card__subtitle {
         margin: 0 0 0.85rem;
-        font-size: 0.82rem;
-        color: var(--muted);
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--txt2);
         line-height: 1.45;
         max-width: 36rem;
     }
@@ -84,11 +78,62 @@
         padding: 0.85rem 1rem;
     }
     .insight-stat__label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
         font-size: 0.68rem;
-        color: var(--muted);
+        color: var(--txt2);
         text-transform: uppercase;
         letter-spacing: 0.07em;
         font-weight: 600;
+    }
+    .insight-stat__help {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1rem;
+        height: 1rem;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(37, 99, 235, 0.12);
+        color: var(--acc);
+        cursor: help;
+        flex-shrink: 0;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+    .insight-stat__help svg {
+        width: 0.7rem;
+        height: 0.7rem;
+        display: block;
+    }
+    .insight-stat-tooltip {
+        position: fixed;
+        z-index: 10050;
+        max-width: min(20rem, calc(100vw - 1.5rem));
+        padding: 0.65rem 0.8rem;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #f8fafc;
+        font-size: 0.78rem;
+        font-weight: 500;
+        line-height: 1.5;
+        text-align: left;
+        white-space: pre-line;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.4);
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease, visibility 0.12s ease;
+    }
+    .insight-stat-tooltip.is-visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        user-select: text;
+        cursor: text;
     }
     .insight-stat__value {
         font-size: 1.2rem;
@@ -100,8 +145,8 @@
 
     .insight-stat__hint {
         margin: 0.35rem 0 0;
-        font-size: 0.72rem;
-        color: var(--muted);
+        font-size: 0.8rem;
+        color: var(--txt2);
         line-height: 1.4;
     }
     .analytics-layout {
@@ -181,9 +226,9 @@
     }
     .charts-month-toolbar__stat-label {
         display: block;
-        font-size: 0.65rem;
+        font-size: 0.68rem;
         font-weight: 600;
-        color: var(--muted);
+        color: var(--txt2);
         text-transform: uppercase;
         letter-spacing: 0.06em;
     }
@@ -198,9 +243,10 @@
     .charts-month-toolbar__hint {
         flex: 1 1 100%;
         margin: 0;
-        font-size: 0.78rem;
-        color: var(--muted);
-        line-height: 1.4;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--txt2);
+        line-height: 1.45;
     }
     @media (max-width: 700px) {
         .charts-month-toolbar__stats {
@@ -321,7 +367,7 @@
 
     <div class="analytics-main">
         <div class="charts-grid">
-    <div class="chart-card chart-card--wide">
+    <div class="chart-card chart-card--wide chart-card--tips">
         <div class="chart-card__head">
             <h2>Spending insights</h2>
         </div>
@@ -330,8 +376,46 @@
                 <div class="insight-stat__label">Monthly average</div>
                 <div class="insight-stat__value number-value">{{ number_format($monthlyAverage ?? 0, 2, ',', '.') }} {{ $currencySymbol }}</div>
             </div>
+            @php
+                $fmtMoney = static fn (float $n): string => number_format($n, 2, ',', '.');
+                $sym = $currencySymbol ?? '₺';
+                $avgSpend = (float) ($monthlyAverage ?? 0);
+                $stdSpend = (float) ($monthlyStdDev ?? 0);
+                $thrSpend = (float) ($anomalyThreshold ?? 0);
+                if ($avgSpend > 0) {
+                    $anomalyThresholdTip = "When is a month counted as unusual?\n\n"
+                        . "We add up your spending for each month that has expenses, then compare months to your usual pattern.\n\n"
+                        . "The line we use is whichever is higher:\n"
+                        . "• 150% of your monthly average\n"
+                        . "• Your average plus how much months usually vary\n\n"
+                        . "If the monthly total is at or above that line, it is marked as an anomaly month.\n\n"
+                        . sprintf("Your numbers:\nAverage %s %s\nTypical variation %s %s\nThreshold shown %s %s", $fmtMoney($avgSpend), $sym, $fmtMoney($stdSpend), $sym, $fmtMoney($thrSpend), $sym);
+                } else {
+                    $anomalyThresholdTip = "When is a month counted as unusual?\n\n"
+                        . "We add up your spending for each month that has expenses.\n\n"
+                        . "The line we use is whichever is higher:\n"
+                        . "• 150% of your monthly average\n"
+                        . "• Your average plus how much months usually vary\n\n"
+                        . "Months at or above that line are marked as anomaly months.";
+                }
+            @endphp
+            <template id="anomaly-threshold-tip-text" hidden>{{ $anomalyThresholdTip }}</template>
             <div class="insight-stat">
-                <div class="insight-stat__label">Anomaly threshold</div>
+                <div class="insight-stat__label">
+                    <span>Anomaly threshold</span>
+                    <button
+                        type="button"
+                        class="insight-stat__help"
+                        aria-label="What anomaly threshold means"
+                        aria-describedby="insight-stat-tooltip"
+                        data-help-source="anomaly-threshold-tip-text"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v-4M12 8h.01"/>
+                        </svg>
+                    </button>
+                </div>
                 <div class="insight-stat__value number-value">{{ number_format($anomalyThreshold ?? 0, 2, ',', '.') }} {{ $currencySymbol }}</div>
             </div>
             <div class="insight-stat">
@@ -498,11 +582,85 @@
         @endif
     </aside>
 </div>
+
+<div id="insight-stat-tooltip" class="insight-stat-tooltip" role="tooltip" hidden></div>
 @endsection
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 <script>
+(function () {
+    const insightTip = document.getElementById('insight-stat-tooltip');
+    if (insightTip) {
+        let activeHelp = null;
+        let hideTimer = null;
+        const hideDelayMs = 320;
+
+        const helpTextFor = (btn) => {
+            const sourceId = btn.getAttribute('data-help-source');
+            if (sourceId) {
+                const tpl = document.getElementById(sourceId);
+                const fromTemplate = tpl?.content?.textContent?.trim();
+                if (fromTemplate) return fromTemplate;
+            }
+            return (btn.getAttribute('data-tooltip') || '').replace(/\\n/g, '\n').replace(/&#039;/g, "'");
+        };
+
+        const hideInsightTip = () => {
+            clearTimeout(hideTimer);
+            insightTip.classList.remove('is-visible');
+            insightTip.hidden = true;
+            activeHelp = null;
+        };
+
+        const scheduleHideInsightTip = () => {
+            clearTimeout(hideTimer);
+            hideTimer = window.setTimeout(hideInsightTip, hideDelayMs);
+        };
+
+        const placeInsightTip = (btn) => {
+            const text = helpTextFor(btn);
+            if (!text) return hideInsightTip();
+            insightTip.textContent = text;
+            insightTip.hidden = false;
+            insightTip.classList.add('is-visible');
+            const rect = btn.getBoundingClientRect();
+            const gap = 10;
+            let left = rect.left + rect.width / 2 - insightTip.offsetWidth / 2;
+            left = Math.max(12, Math.min(left, window.innerWidth - insightTip.offsetWidth - 12));
+            let top = rect.bottom + gap;
+            if (top + insightTip.offsetHeight > window.innerHeight - 12) {
+                top = rect.top - insightTip.offsetHeight - gap;
+            }
+            insightTip.style.left = left + 'px';
+            insightTip.style.top = top + 'px';
+        };
+
+        const showInsightTip = (btn) => {
+            clearTimeout(hideTimer);
+            activeHelp = btn;
+            placeInsightTip(btn);
+        };
+
+        document.querySelectorAll('.insight-stat__help[data-help-source], .insight-stat__help[data-tooltip]').forEach((btn) => {
+            btn.addEventListener('mouseenter', () => showInsightTip(btn));
+            btn.addEventListener('focus', () => showInsightTip(btn));
+            btn.addEventListener('mouseleave', scheduleHideInsightTip);
+            btn.addEventListener('blur', scheduleHideInsightTip);
+        });
+
+        insightTip.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+        insightTip.addEventListener('mouseleave', scheduleHideInsightTip);
+
+        window.addEventListener('scroll', () => {
+            if (activeHelp) placeInsightTip(activeHelp);
+        }, true);
+        window.addEventListener('resize', () => {
+            if (activeHelp) placeInsightTip(activeHelp);
+        });
+    }
+})();
+
 (function () {
     const pieLabels = @json($pieLabels);
     const pieData = @json($pieData);

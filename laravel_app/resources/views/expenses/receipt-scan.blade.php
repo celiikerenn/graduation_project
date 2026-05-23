@@ -67,17 +67,7 @@
                         >
                             <p class="receipt-scan-action-box__title">Drag & drop</p>
                             <p class="receipt-scan-action-box__or">or</p>
-                            <p class="receipt-scan-action-box__subtitle">select</p>
-                        </div>
-                        <p class="receipt-scan-or receipt-scan-or--large">or</p>
-                        <div
-                            class="receipt-scan-action-box"
-                            id="receipt-camera-box"
-                            role="button"
-                            tabindex="0"
-                            aria-label="Open camera to capture a receipt"
-                        >
-                            <p class="receipt-scan-action-box__title">Open camera</p>
+                            <p class="receipt-scan-action-box__subtitle">select a file</p>
                         </div>
                         <p class="receipt-scan-upload-hint">JPG, PNG or WEBP · max 5 MB · needs Tesseract on the API server</p>
                     </div>
@@ -212,18 +202,6 @@
     </div>
 </div>
 
-<div id="receipt-camera-modal" class="receipt-camera-modal" hidden>
-    <div class="receipt-camera-modal__panel">
-        <p class="receipt-camera-modal__title">Capture receipt</p>
-        <div class="receipt-camera-modal__video-wrap">
-            <video id="receipt-camera-video" class="receipt-camera-modal__video" autoplay playsinline muted></video>
-        </div>
-        <div class="receipt-camera-modal__actions">
-            <button type="button" class="btn btn-primary" id="receipt-camera-capture">Capture</button>
-            <button type="button" class="btn btn-secondary" id="receipt-camera-cancel">Close</button>
-        </div>
-    </div>
-</div>
 @endsection
 
 @push('styles')
@@ -305,87 +283,11 @@
         color: var(--txt);
         line-height: 1.3;
     }
-    body.receipt-camera-open .app-shell,
-    body.receipt-camera-open .main {
-        pointer-events: none;
-    }
-    body.receipt-camera-open .receipt-camera-modal {
-        pointer-events: auto;
-    }
-    .receipt-camera-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 2000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1.25rem;
-        background: rgba(15, 23, 42, 0.62);
-        box-sizing: border-box;
-    }
-    .receipt-camera-modal[hidden] {
-        display: none !important;
-    }
-    .receipt-camera-modal__panel {
-        display: flex;
-        flex-direction: column;
-        gap: 1.35rem;
-        width: min(94vw, 44rem);
-        max-height: calc(100vh - 2.5rem);
-        padding: 1.75rem 2rem 2rem;
-        border-radius: 16px;
-        border: 1px solid var(--border2);
-        background: var(--surface);
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 24px 56px rgba(15, 23, 42, 0.22);
-        box-sizing: border-box;
-        overflow: hidden;
-        pointer-events: auto;
-    }
-    .receipt-camera-modal__title {
-        margin: 0;
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: var(--txt);
-        line-height: 1.3;
-    }
-    .receipt-camera-modal__video-wrap {
-        width: 100%;
-        flex: 1 1 auto;
-        min-height: 18rem;
-        aspect-ratio: 4 / 3;
-        max-height: min(72vh, 34rem);
-        border-radius: 12px;
-        border: 1px solid var(--border2);
-        background: #000;
-        overflow: hidden;
-    }
-    .receipt-camera-modal__video {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .receipt-camera-modal__actions {
-        display: flex;
-        gap: 0.65rem;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        padding-top: 0.25rem;
-    }
-    .receipt-scan-or--large {
-        margin: 1rem 0;
-        text-align: center;
-        font-size: 1.85rem;
-        font-weight: 800;
-        color: var(--txt);
-        line-height: 1;
-        letter-spacing: 0.02em;
-        text-transform: lowercase;
-    }
     .receipt-scan-upload-hint {
         margin: 0.85rem 0 0;
         font-size: 0.85rem;
-        color: var(--muted);
+        font-weight: 500;
+        color: var(--txt2);
         text-align: center;
     }
     .receipt-scan-placeholder input:disabled,
@@ -415,15 +317,8 @@
     const wrap = document.getElementById('receipt-preview-wrap');
     const img = document.getElementById('receipt-preview');
     const dropzone = document.getElementById('receipt-dropzone');
-    const cameraBox = document.getElementById('receipt-camera-box');
-    const cameraModal = document.getElementById('receipt-camera-modal');
-    const cameraVideo = document.getElementById('receipt-camera-video');
-    const cameraCapture = document.getElementById('receipt-camera-capture');
-    const cameraCancel = document.getElementById('receipt-camera-cancel');
 
     if (!input || !picker) return;
-
-    let cameraStream = null;
 
     const showPreview = (file) => {
         if (!wrap || !img) return;
@@ -451,92 +346,11 @@
 
     const openPicker = () => picker.click();
 
-    const stopCamera = () => {
-        if (cameraStream) {
-            cameraStream.getTracks().forEach((track) => track.stop());
-            cameraStream = null;
-        }
-        if (cameraVideo) cameraVideo.srcObject = null;
-        if (cameraModal) cameraModal.hidden = true;
-        document.body.classList.remove('receipt-camera-open');
-    };
-
-    const openCamera = async () => {
-        if (!navigator.mediaDevices?.getUserMedia) {
-            alert('Camera is not supported in this browser.');
-            return;
-        }
-
-        try {
-            cameraStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: 'environment' } },
-                audio: false,
-            });
-            if (cameraVideo) {
-                cameraVideo.srcObject = cameraStream;
-            }
-            if (cameraModal) cameraModal.hidden = false;
-            document.body.classList.add('receipt-camera-open');
-        } catch {
-            alert('Could not access the camera. Check permissions and try again.');
-            stopCamera();
-        }
-    };
-
-    const captureFromCamera = () => {
-        if (!cameraVideo || !cameraVideo.videoWidth) return;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = cameraVideo.videoWidth;
-        canvas.height = cameraVideo.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-
-        canvas.toBlob((blob) => {
-            if (!blob) return;
-            const file = new File([blob], `receipt-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            assignFile(file);
-            stopCamera();
-        }, 'image/jpeg', 0.92);
-    };
-
     dropzone?.addEventListener('click', openPicker);
     dropzone?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             openPicker();
-        }
-    });
-
-    cameraBox?.addEventListener('click', openCamera);
-    cameraBox?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            openCamera();
-        }
-    });
-
-    cameraCapture?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        captureFromCamera();
-    });
-    cameraCancel?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        stopCamera();
-    });
-    cameraModal?.querySelector('.receipt-camera-modal__panel')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
-    cameraModal?.addEventListener('click', (e) => {
-        if (e.target === cameraModal) stopCamera();
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && cameraModal && !cameraModal.hidden) {
-            e.preventDefault();
-            stopCamera();
         }
     });
 

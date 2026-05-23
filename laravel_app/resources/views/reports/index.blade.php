@@ -142,7 +142,8 @@
     .reports-month-card__count {
         margin: 0;
         font-size: 0.8rem;
-        color: var(--muted);
+        font-weight: 500;
+        color: var(--txt2);
     }
     .reports-month-card__actions {
         display: flex;

@@ -21,12 +21,19 @@
         margin-top: 0;
         margin-bottom: 0.75rem;
         font-size: 1.05rem;
+        color: var(--txt);
+    }
+    .settings-panel .form-group > div:not(.text-danger) {
+        color: var(--txt);
+        font-weight: 500;
+        font-size: 0.95rem;
     }
     .settings-panel__hint {
         margin-top: 0;
         margin-bottom: 0.85rem;
-        color: var(--muted);
-        font-size: 0.88rem;
+        color: var(--txt2);
+        font-size: 0.9rem;
+        font-weight: 500;
         line-height: 1.45;
     }
     .settings-panel--fixed {

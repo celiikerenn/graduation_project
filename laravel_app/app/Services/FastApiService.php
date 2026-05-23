@@ -221,7 +221,14 @@ class FastApiService
         $this->logIfError($response, 'listCategories');
         $response->throw();
 
-        return $response->json();
+        $categories = $response->json();
+        if (! is_array($categories)) {
+            return [];
+        }
+
+        usort($categories, static fn (array $a, array $b): int => ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0)));
+
+        return $categories;
     }
 
     /**

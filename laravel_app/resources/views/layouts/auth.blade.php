@@ -101,10 +101,64 @@
             border: none;
             box-shadow: none;
             outline: none;
-            transition: transform 0.35s ease;
+            animation: authIllustFloat 5.5s ease-in-out infinite;
         }
-        .auth-visual:hover .auth-illustration {
-            transform: scale(1.03);
+        @keyframes authIllustFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-7px); }
+        }
+        .auth-illust-chart-layer {
+            opacity: 0;
+            transition: opacity 0.55s ease-in-out;
+        }
+        .auth-illust-chart-layer.is-visible {
+            opacity: 1;
+        }
+        .auth-illust-bar__rect {
+            transition: y 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                height 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                fill 0.45s ease;
+        }
+        .auth-illust-line__path {
+            transition: d 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                stroke 0.45s ease;
+        }
+        .auth-illust-line__dot {
+            transition: cx 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                cy 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                fill 0.45s ease;
+        }
+        .auth-illust-pie-segments {
+            transition: opacity 0.3s ease;
+        }
+        .auth-illust-pie-segments path {
+            transition: fill 0.4s ease;
+            shape-rendering: geometricPrecision;
+        }
+        .auth-illust-coin {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: authCoinFloat 3.4s ease-in-out infinite;
+        }
+        .auth-illust-coin--try { animation-delay: 0s; }
+        .auth-illust-coin--usd { animation-delay: 0.9s; }
+        .auth-illust-coin--eur { animation-delay: 1.6s; }
+        @keyframes authCoinFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-9px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .auth-illustration,
+            .auth-illust-coin {
+                animation: none;
+            }
+            .auth-illust-bar__rect,
+            .auth-illust-line__path,
+            .auth-illust-line__dot,
+            .auth-illust-pie-segments path,
+            .auth-illust-chart-layer {
+                transition: none;
+            }
         }
 
         .auth-split__panel {
@@ -275,6 +329,51 @@
         }
         .auth-form-footer a:hover { text-decoration: underline; }
 
+        .auth-testimonial-carousel {
+            width: 100%;
+            text-align: left;
+        }
+        .auth-testimonial-track {
+            overflow: hidden;
+            width: 100%;
+        }
+        .auth-testimonial-slider {
+            display: flex;
+            width: 100%;
+            transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform;
+        }
+        .auth-testimonial-slide {
+            flex: 0 0 100%;
+            width: 100%;
+            min-width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .auth-testimonial-slider {
+                transition: none;
+            }
+        }
+        .auth-testimonial-dots {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 14px;
+        }
+        .auth-testimonial-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(191, 219, 254, 0.35);
+            transition: background 0.5s ease-in-out, opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+        .auth-testimonial-dot.is-active {
+            background: rgba(255, 255, 255, 0.95);
+            transform: scale(1.15);
+        }
         .auth-testimonial {
             margin: 0;
             padding: 0;
@@ -463,6 +562,257 @@ if (document.readyState === 'loading') {
 } else {
     initPasswordToggles();
 }
+
+(function initAuthIllustration() {
+    const svg = document.querySelector('.auth-illustration');
+    if (!svg) return;
+
+    const barLayer = svg.querySelector('.auth-illust-bars');
+    const lineLayer = svg.querySelector('.auth-illust-line');
+    const linePathEl = svg.querySelector('.auth-illust-line__path');
+    const lineDotEl = svg.querySelector('.auth-illust-line__dot');
+    const pieSegments = svg.querySelector('.auth-illust-pie-segments');
+    if (!barLayer || !lineLayer || !linePathEl || !lineDotEl || !pieSegments) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const BAR_X = [48, 90, 132, 174];
+    const BAR_W = 30;
+    const BASE_Y = 255;
+    const LINE_X = [64, 108, 152, 196];
+    const CHART_COLORS = ['#2563eb', '#60a5fa', '#34d399', '#93c5fd', '#f59e0b', '#a78bfa', '#f472b6', '#22d3ee'];
+    const PIE_OUT = 50;
+    const PIE_IN = 28;
+    const PIE_COUNT = 4;
+
+    let chartMode = 'bar';
+
+    const shuffle = (arr) => {
+        const copy = arr.slice();
+        for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+    };
+
+    const distinctColors = (count) => shuffle(CHART_COLORS).slice(0, count);
+
+    const roundCoord = (value) => Math.round(value * 100) / 100;
+
+    const polar = (radius, degrees) => {
+        const rad = ((degrees - 90) * Math.PI) / 180;
+        return [roundCoord(radius * Math.cos(rad)), roundCoord(radius * Math.sin(rad))];
+    };
+
+    const donutSlice = (startDeg, endDeg) => {
+        const start = roundCoord(startDeg);
+        const end = roundCoord(endDeg);
+        const sweep = end - start;
+        if (sweep <= 0) return '';
+        const large = sweep > 180 ? 1 : 0;
+        const [x1, y1] = polar(PIE_OUT, start);
+        const [x2, y2] = polar(PIE_OUT, end);
+        const [x3, y3] = polar(PIE_IN, end);
+        const [x4, y4] = polar(PIE_IN, start);
+        return 'M ' + x1 + ' ' + y1
+            + ' A ' + PIE_OUT + ' ' + PIE_OUT + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2
+            + ' L ' + x3 + ' ' + y3
+            + ' A ' + PIE_IN + ' ' + PIE_IN + ' 0 ' + large + ' 0 ' + x4 + ' ' + y4
+            + ' Z';
+    };
+
+    const randomBars = () => {
+        const colors = distinctColors(BAR_X.length);
+        return BAR_X.map((x, i) => {
+            const height = 52 + Math.random() * 108;
+            return {
+                x,
+                y: BASE_Y - height,
+                width: BAR_W,
+                height,
+                fill: colors[i],
+            };
+        });
+    };
+
+    const applyBars = (bars) => {
+        barLayer.querySelectorAll('.auth-illust-bar').forEach((group, i) => {
+            const rect = group.querySelector('.auth-illust-bar__rect');
+            const bar = bars[i];
+            if (!rect || !bar) return;
+            rect.setAttribute('x', String(bar.x));
+            rect.setAttribute('y', String(bar.y));
+            rect.setAttribute('height', String(bar.height));
+            rect.setAttribute('fill', bar.fill);
+        });
+    };
+
+    const randomLine = () => LINE_X.map((x) => ({
+        x,
+        y: 118 + Math.random() * 102,
+    }));
+
+    const applyLine = (points) => {
+        const colors = distinctColors(LINE_X.length);
+        const path = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ' ' + p.y).join(' ');
+        linePathEl.setAttribute('d', path);
+        linePathEl.setAttribute('stroke', colors[0]);
+        const last = points[points.length - 1];
+        lineDotEl.setAttribute('cx', String(last.x));
+        lineDotEl.setAttribute('cy', String(last.y));
+        lineDotEl.setAttribute('fill', colors[colors.length - 1]);
+    };
+
+    const randomPie = () => {
+        const values = Array.from({ length: PIE_COUNT }, () => 10 + Math.random() * 30);
+        const total = values.reduce((sum, v) => sum + v, 0);
+        const colors = distinctColors(PIE_COUNT);
+        let angle = 0;
+
+        return values.map((value, i) => {
+            const isLast = i === values.length - 1;
+            const start = angle;
+            angle = isLast ? 360 : angle + (value / total) * 360;
+            return {
+                d: donutSlice(start, angle),
+                fill: colors[i],
+            };
+        }).filter((segment) => segment.d !== '');
+    };
+
+    const renderPie = () => {
+        const segments = randomPie();
+        const applySegments = () => {
+            let paths = pieSegments.querySelectorAll('path');
+
+            if (paths.length !== segments.length) {
+                pieSegments.innerHTML = segments.map(() => '<path opacity="0.95"></path>').join('');
+                paths = pieSegments.querySelectorAll('path');
+            }
+
+            segments.forEach((segment, i) => {
+                if (!paths[i]) return;
+                paths[i].setAttribute('d', segment.d);
+                paths[i].setAttribute('fill', segment.fill);
+            });
+        };
+
+        if (reduceMotion) {
+            applySegments();
+            return;
+        }
+
+        pieSegments.style.opacity = '0.35';
+        window.setTimeout(() => {
+            applySegments();
+            pieSegments.style.opacity = '1';
+        }, 140);
+    };
+
+    const setChartMode = (mode) => {
+        chartMode = mode;
+        barLayer.classList.toggle('is-visible', mode === 'bar');
+        lineLayer.classList.toggle('is-visible', mode === 'line');
+    };
+
+    const refreshChart = () => {
+        if (chartMode === 'bar') applyBars(randomBars());
+        else applyLine(randomLine());
+    };
+
+    applyBars(randomBars());
+    applyLine(randomLine());
+    renderPie();
+    setChartMode('bar');
+
+    if (reduceMotion) return;
+
+    window.setInterval(refreshChart, 2800);
+    window.setInterval(() => {
+        setChartMode(chartMode === 'bar' ? 'line' : 'bar');
+        refreshChart();
+    }, 4500);
+    window.setInterval(renderPie, 2600);
+})();
+
+(function initAuthTestimonialCarousel() {
+    const carousel = document.querySelector('.auth-testimonial-carousel');
+    if (!carousel) return;
+
+    const slider = carousel.querySelector('.auth-testimonial-slider');
+    const slides = Array.from(carousel.querySelectorAll('.auth-testimonial-slide'));
+    const dots = Array.from(carousel.querySelectorAll('.auth-testimonial-dot'));
+    if (!slider || slides.length < 2) return;
+
+    let index = slides.findIndex((s) => s.classList.contains('is-active'));
+    if (index < 0) index = 0;
+
+    const intervalMs = Math.max(3000, parseInt(carousel.dataset.interval, 10) || 4200);
+    const slideMs = 700;
+    let timer = null;
+    let transitioning = false;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const syncState = () => {
+        slides.forEach((slide, i) => {
+            const active = i === index;
+            slide.classList.toggle('is-active', active);
+            slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+        });
+        dots.forEach((dot, i) => dot.classList.toggle('is-active', i === index));
+    };
+
+    const goTo = (nextIndex) => {
+        const next = (nextIndex + slides.length) % slides.length;
+        if (next === index) return;
+
+        const wrapToStart = next === 0 && index === slides.length - 1;
+        if (wrapToStart && !reduceMotion) {
+            slider.style.transition = 'none';
+            index = 0;
+            slider.style.transform = 'translate3d(0, 0, 0)';
+            syncState();
+            void slider.offsetWidth;
+            slider.style.transition = '';
+            return;
+        }
+
+        index = next;
+        slider.style.transform = 'translate3d(-' + (index * 100) + '%, 0, 0)';
+        syncState();
+    };
+
+    const show = (nextIndex) => {
+        if (transitioning) return;
+        transitioning = true;
+        goTo(nextIndex);
+        window.setTimeout(() => {
+            transitioning = false;
+        }, reduceMotion ? 0 : slideMs);
+    };
+
+    slider.style.transform = 'translate3d(-' + (index * 100) + '%, 0, 0)';
+
+    const start = () => {
+        if (timer) return;
+        timer = window.setInterval(() => show(index + 1), intervalMs);
+    };
+
+    const stop = () => {
+        if (!timer) return;
+        window.clearInterval(timer);
+        timer = null;
+    };
+
+    carousel.addEventListener('mouseenter', stop);
+    carousel.addEventListener('mouseleave', start);
+    carousel.addEventListener('focusin', stop);
+    carousel.addEventListener('focusout', start);
+
+    if (!reduceMotion) {
+        start();
+    }
+})();
 </script>
 @stack('scripts')
 </body>
