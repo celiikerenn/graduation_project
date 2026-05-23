@@ -38,6 +38,8 @@
 <h1>Dashboard</h1>
 <p>Welcome, <strong>{{ $welcomeFirstName !== '' ? $welcomeFirstName : 'User' }}</strong>.</p>
 
+@include('partials.ai-insights', ['insights' => $aiInsights ?? []])
+
 <div class="card" style="display:flex; flex-wrap:wrap; gap:1.5rem; align-items:flex-start;">
     <div style="flex:1 1 260px;">
         @php
@@ -146,25 +148,53 @@
                 </div>
             @endforeach
         </div>
-        <div style="margin-top:0.75rem;">
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
-                @if($monthPage > 1)
-                    <a href="{{ route('dashboard', ['m_page' => $monthPage - 1]) }}"
-                       class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.85rem;">
-                        ‹ Previous
-                    </a>
-                @endif
-                @if(isset($recentMonths[0]) && count($recentMonths) === ($perMonthPage ?? 12))
-                    <a href="{{ route('dashboard', ['m_page' => $monthPage + 1]) }}"
-                       class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.85rem;">
-                        Next ›
-                    </a>
-                @endif
-            </div>
-            <p style="margin:0.45rem 0 0; font-size:1.05rem; color:var(--txt2); font-weight:bold; font-variant-numeric: tabular-nums;">
-                {{ $monthPage }} of {{ $monthTotalPages ?? 1 }}
-            </p>
-        </div>
+        @if(($monthTotalPages ?? 1) > 1)
+            @php
+                $current = $monthPage ?? 1;
+                $last = $monthTotalPages ?? 1;
+            @endphp
+            <nav class="app-pagination" aria-label="Recent months pagination">
+                <p class="app-pagination__info">
+                    Page {{ $current }} of {{ $last }} · {{ $monthTotalCount ?? 0 }} months total
+                </p>
+                <ul class="app-pagination__links">
+                    @if($current > 1)
+                        <li>
+                            <a href="{{ route('dashboard', ['m_page' => $current - 1]) }}"
+                               class="btn btn-secondary"
+                               style="padding:0.25rem 0.6rem; font-size:0.85rem; border-radius:999px;">
+                                ‹ Prev
+                            </a>
+                        </li>
+                    @endif
+                    @for($p = 1; $p <= $last; $p++)
+                        <li>
+                            @if($p === $current)
+                                <span class="btn btn-primary"
+                                      style="padding:0.25rem 0.6rem; font-size:0.85rem; border-radius:999px;">
+                                    {{ $p }}
+                                </span>
+                            @else
+                                <a href="{{ route('dashboard', ['m_page' => $p]) }}"
+                                   class="btn btn-secondary"
+                                   style="padding:0.25rem 0.6rem; font-size:0.85rem; border-radius:999px;">
+                                    {{ $p }}
+                                </a>
+                            @endif
+                        </li>
+                    @endfor
+                    @if($current < $last)
+                        <li>
+                            <a href="{{ route('dashboard', ['m_page' => $current + 1]) }}"
+                               class="btn btn-secondary"
+                               style="padding:0.25rem 0.6rem; font-size:0.85rem; border-radius:999px;">
+                                Next ›
+                            </a>
+                        </li>
+                    @endif
+                </ul>
+            </nav>
+        @endif
     </div>
 @endif
 @endsection

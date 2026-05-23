@@ -42,6 +42,7 @@ class ExpenseCreate(BaseModel):
     category_id: int = Field(..., description="expense_categories tablosundaki kategori id")
     amount: Decimal = Field(..., gt=0, description="Harcama tutarı")
     description: Optional[str] = Field(None, max_length=2000)
+    receipt_image_path: Optional[str] = Field(None, max_length=512)
     expense_date: date = Field(..., description="Harcamanın yapıldığı tarih")
 
 
@@ -50,6 +51,7 @@ class ExpenseUpdate(BaseModel):
     category_id: Optional[int] = None
     amount: Optional[Decimal] = None
     description: Optional[str] = None
+    receipt_image_path: Optional[str] = None
     expense_date: Optional[date] = None
 
 
@@ -61,6 +63,7 @@ class ExpenseResponse(BaseModel):
     category_name: str
     amount: Decimal
     description: Optional[str]
+    receipt_image_path: Optional[str] = None
     expense_date: date
     created_at: datetime
 
@@ -103,5 +106,12 @@ class ReceiptScanResponse(BaseModel):
     expense_date: Optional[str] = None  # ISO date YYYY-MM-DD
     description: Optional[str] = None
     category_name: Optional[str] = None
+    category_source: Optional[str] = None  # keywords | memory
+    description_source: Optional[str] = None  # ai | ocr
     confidence: str = "low"
     message: str = ""
+
+
+class ReceiptLearnResponse(BaseModel):
+    user_id: int
+    keywords_saved: int = 0

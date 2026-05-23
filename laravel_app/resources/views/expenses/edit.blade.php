@@ -48,6 +48,19 @@
             @error('description') <div class="text-danger">{{ $message }}</div> @enderror
         </div>
 
+        @if(!empty($expense['receipt_image_path']))
+            <div class="form-group">
+                <label>Receipt image</label>
+                <div style="border:1px solid var(--border2); border-radius:12px; padding:0.75rem; background:var(--surface2); max-width:320px;">
+                    <img
+                        src="{{ asset('storage/'.$expense['receipt_image_path']) }}"
+                        alt="Receipt for this expense"
+                        style="max-width:100%; max-height:280px; border-radius:8px; display:block;"
+                    >
+                </div>
+            </div>
+        @endif
+
         <button type="submit" class="btn btn-primary">Update</button>
         <a href="{{ route('expenses.index') }}" class="btn btn-secondary">Back</a>
     </form>

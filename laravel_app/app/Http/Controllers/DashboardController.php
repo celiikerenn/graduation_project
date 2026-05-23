@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
 use App\Support\Currency;
+use App\Support\PageInsights;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
@@ -32,6 +33,7 @@ class DashboardController extends Controller
         $monthPage = max((int) $request->query('m_page', 1), 1);
         $perMonthPage = 12;
         $monthTotalPages = 1;
+        $monthTotalCount = 0;
         try {
             $monthly = $this->api->getMonthlyTotal($userId, $now->year, $now->month);
 
@@ -62,8 +64,8 @@ class DashboardController extends Controller
             if (!empty($byMonth)) {
                 krsort($byMonth); // en yeni aylar önce
                 $allMonths = array_values($byMonth);
-                $totalMonths = count($allMonths);
-                $monthTotalPages = max(1, (int) ceil($totalMonths / $perMonthPage));
+                $monthTotalCount = count($allMonths);
+                $monthTotalPages = max(1, (int) ceil($monthTotalCount / $perMonthPage));
                 $monthPage = min($monthPage, $monthTotalPages);
                 $offset = ($monthPage - 1) * $perMonthPage;
                 $recentMonths = array_slice($allMonths, $offset, $perMonthPage);
@@ -71,6 +73,8 @@ class DashboardController extends Controller
         } catch (\Throwable $e) {
             // show empty if API is unreachable
         }
+
+        $monthlyBudget = (float) session('monthly_budget', 0);
 
         return view('dashboard', [
             'userName'         => $request->session()->get('user_name'),
@@ -80,7 +84,9 @@ class DashboardController extends Controller
             'recentMonths'     => $recentMonths,
             'monthPage'        => $monthPage,
             'monthTotalPages'  => $monthTotalPages,
+            'monthTotalCount'  => $monthTotalCount,
             'perMonthPage'     => $perMonthPage,
+            'aiInsights'       => PageInsights::forDashboard($monthly, $monthlyBudget, $recentMonths),
         ]);
     }
 
@@ -108,6 +114,14 @@ class DashboardController extends Controller
         $anomalyMonths = [];
         $monthlyAverage = 0.0;
         $anomalyThreshold = 0.0;
+        $monthlyStdDev = 0.0;
+        $monthComparison = null;
+        $compareMonthA = null;
+        $compareMonthB = null;
+        $selectedMonthTotal = 0.0;
+        $selectedMonthExpenseCount = 0;
+        $selectedMonthCategoryCount = 0;
+        $selectedMonthLabel = null;
 
         try {
             // FastAPI limit üst sınırı 200
@@ -156,7 +170,12 @@ class DashboardController extends Controller
 
                     $categoryName = $expense['category_name'] ?? 'Other';
                     $byCategory[$categoryName] = ($byCategory[$categoryName] ?? 0) + $amount;
+                    $selectedMonthExpenseCount++;
                 }
+
+                $selectedMonthTotal = (float) ($byMonth[$selectedMonth] ?? 0);
+                $selectedMonthCategoryCount = count($byCategory);
+                $selectedMonthLabel = Carbon::createFromFormat('Y-m', $selectedMonth)->format('F Y');
             }
 
             // Sort months chronologically
@@ -174,6 +193,7 @@ class DashboardController extends Controller
                     $variance += pow($value - $monthlyAverage, 2);
                 }
                 $stdDev = $count > 1 ? sqrt($variance / $count) : 0.0;
+                $monthlyStdDev = $stdDev;
                 $anomalyThreshold = max($monthlyAverage * 1.5, $monthlyAverage + $stdDev);
 
                 foreach ($byMonth as $monthKey => $total) {
@@ -215,6 +235,64 @@ class DashboardController extends Controller
             // Bar chart uses same (sorted) order
             $barLabels = $pieLabels;
             $barData = $pieData;
+
+            // Compare any two months (?compare_a=YYYY-MM&compare_b=YYYY-MM); omit params = —
+            if (!empty($availableMonths)) {
+                if (($request->has('compare_a') || $request->has('compare_b'))
+                    && !$request->filled('compare_a')
+                    && !$request->filled('compare_b')) {
+                    $cleanParams = array_filter(
+                        ['month' => $request->query('month')],
+                        fn ($v) => $v !== null && $v !== ''
+                    );
+
+                    return redirect()->route('charts', $cleanParams);
+                }
+
+                $compareMonthA = $request->filled('compare_a')
+                    && in_array($request->query('compare_a'), $availableMonths, true)
+                    ? $request->query('compare_a')
+                    : null;
+                $hasCompareA = $compareMonthA !== null;
+
+                $compareMonthB = $request->filled('compare_b')
+                    && in_array($request->query('compare_b'), $availableMonths, true)
+                    ? $request->query('compare_b')
+                    : null;
+                $hasBaseline = $compareMonthB !== null;
+
+                $totalA = $hasCompareA ? (float) ($byMonth[$compareMonthA] ?? 0) : 0.0;
+                $totalB = $hasBaseline ? (float) ($byMonth[$compareMonthB] ?? 0) : 0.0;
+                $sameMonth = $hasCompareA && $hasBaseline && $compareMonthA === $compareMonthB;
+
+                $changePercent = null;
+                if ($hasCompareA && $hasBaseline && !$sameMonth) {
+                    if ($totalB > 0) {
+                        $changePercent = (($totalA - $totalB) / $totalB) * 100;
+                    } elseif ($totalA > 0) {
+                        $changePercent = 100.0;
+                    } else {
+                        $changePercent = 0.0;
+                    }
+                }
+
+                $monthComparison = [
+                    'a_key'          => $compareMonthA,
+                    'a_label'        => $hasCompareA
+                        ? Carbon::createFromFormat('Y-m', $compareMonthA)->format('F Y')
+                        : null,
+                    'a_total'        => $totalA,
+                    'b_key'          => $compareMonthB,
+                    'b_label'        => $hasBaseline
+                        ? Carbon::createFromFormat('Y-m', $compareMonthB)->format('F Y')
+                        : null,
+                    'b_total'        => $totalB,
+                    'has_compare_a'  => $hasCompareA,
+                    'has_baseline'   => $hasBaseline,
+                    'same_month'     => $sameMonth,
+                    'change_percent' => $changePercent,
+                ];
+            }
         } catch (\Throwable $e) {
             // API ulaşılamazsa boş grafikler gösterilir
         }
@@ -232,7 +310,15 @@ class DashboardController extends Controller
             'recommendations' => $recommendations,
             'anomalyMonths'   => $anomalyMonths,
             'monthlyAverage'  => $monthlyAverage,
+            'monthlyStdDev'   => $monthlyStdDev,
             'anomalyThreshold'=> $anomalyThreshold,
+            'monthComparison' => $monthComparison,
+            'compareMonthA'   => $compareMonthA,
+            'compareMonthB'   => $compareMonthB,
+            'selectedMonthTotal' => $selectedMonthTotal,
+            'selectedMonthExpenseCount' => $selectedMonthExpenseCount,
+            'selectedMonthCategoryCount' => $selectedMonthCategoryCount,
+            'selectedMonthLabel' => $selectedMonthLabel,
         ]);
     }
 }

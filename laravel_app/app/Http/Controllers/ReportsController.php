@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
 use App\Support\Currency;
+use App\Support\PageInsights;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -36,21 +37,13 @@ class ReportsController extends Controller
         $offset = ($page - 1) * $perPage;
         $pageSummaries = array_slice($summaries, $offset, $perPage);
 
-        $grandTotal = array_sum(array_column($summaries, 'total'));
-        $monthlyBudget = (float) $request->session()->get('monthly_budget', 0);
-        $allTimeBudget = $monthlyBudget > 0 && $totalMonths > 0
-            ? $monthlyBudget * $totalMonths
-            : null;
-
         return view('reports.index', [
             'monthCards'     => $pageSummaries,
             'page'           => $page,
             'totalPages'     => $totalPages,
             'totalMonths'    => $totalMonths,
-            'grandTotal'     => $grandTotal,
-            'allTimeBudget'  => $allTimeBudget,
-            'monthlyBudget'  => $monthlyBudget,
             'currencySymbol' => Currency::symbol(session('currency')),
+            'aiInsights'     => PageInsights::forReports($totalMonths),
         ]);
     }
 
@@ -96,36 +89,49 @@ class ReportsController extends Controller
 
     public function downloadAllCsvZip(Request $request): Response|RedirectResponse
     {
-        $userId = $request->session()->get('user_id');
-        if (!$userId) {
-            return redirect()->route('login');
-        }
-
-        $summaries = $this->buildMonthSummaries($userId);
-        if ($summaries === []) {
-            return redirect()->route('reports.index')
-                ->withErrors(['reports' => 'No expenses found yet.']);
-        }
-
-        $allExpenses = $this->listAllExpenses($userId);
-        $files = [];
-        foreach ($summaries as $summary) {
-            [$year, $month] = $this->parseMonthKey($summary['key']);
-            $expenses = $this->filterExpensesByMonth($allExpenses, $year, $month);
-            $files[sprintf('expenses_%d_%02d.csv', $year, $month)] = $this->buildCsvContent($expenses);
-        }
-
-        return $this->zipDownloadResponse($files, 'expenses_all_csv.zip');
+        return $this->downloadMonthsZip($request, 'csv', null, 'expenses_all_csv.zip');
     }
 
     public function downloadAllPdfZip(Request $request): Response|RedirectResponse
     {
+        return $this->downloadMonthsZip($request, 'pdf', null, 'expenses_all_pdf.zip');
+    }
+
+    public function downloadSelectedCsvZip(Request $request): Response|RedirectResponse
+    {
+        return $this->downloadMonthsZip(
+            $request,
+            'csv',
+            $request->input('months', []),
+            'expenses_selected_csv.zip'
+        );
+    }
+
+    public function downloadSelectedPdfZip(Request $request): Response|RedirectResponse
+    {
+        return $this->downloadMonthsZip(
+            $request,
+            'pdf',
+            $request->input('months', []),
+            'expenses_selected_pdf.zip'
+        );
+    }
+
+    /**
+     * @param  list<string>|null  $requestedMonthKeys  null = all months with expenses
+     */
+    private function downloadMonthsZip(
+        Request $request,
+        string $format,
+        ?array $requestedMonthKeys,
+        string $zipFilename
+    ): Response|RedirectResponse {
         $userId = $request->session()->get('user_id');
         if (!$userId) {
             return redirect()->route('login');
         }
 
-        if (!class_exists(ZipArchive::class)) {
+        if ($format === 'pdf' && !class_exists(ZipArchive::class)) {
             return redirect()->route('reports.index')
                 ->withErrors(['reports' => 'ZIP extension is not available on the server.']);
         }
@@ -136,21 +142,71 @@ class ReportsController extends Controller
                 ->withErrors(['reports' => 'No expenses found yet.']);
         }
 
+        if ($requestedMonthKeys === null) {
+            $monthKeys = array_column($summaries, 'key');
+        } else {
+            $monthKeys = $this->filterValidMonthKeys($userId, $requestedMonthKeys);
+            if ($monthKeys === []) {
+                return redirect()->route('reports.index')
+                    ->withErrors(['reports' => 'Select at least one month to download.']);
+            }
+        }
+
+        $summaryByKey = [];
+        foreach ($summaries as $summary) {
+            $summaryByKey[$summary['key']] = $summary;
+        }
+
         $allExpenses = $this->listAllExpenses($userId);
         $currencySymbol = Currency::symbol(session('currency'));
         $files = [];
-        foreach ($summaries as $summary) {
-            [$year, $month] = $this->parseMonthKey($summary['key']);
+
+        foreach ($monthKeys as $key) {
+            if (!isset($summaryByKey[$key])) {
+                continue;
+            }
+            [$year, $month] = $this->parseMonthKey($key);
             $expenses = $this->filterExpensesByMonth($allExpenses, $year, $month);
-            $files[sprintf('expenses_%d_%02d.pdf', $year, $month)] = $this->buildPdfBinary(
-                $expenses,
-                $year,
-                $month,
-                $currencySymbol
-            );
+            if ($format === 'csv') {
+                $files[sprintf('expenses_%d_%02d.csv', $year, $month)] = $this->buildCsvContent($expenses);
+            } else {
+                $files[sprintf('expenses_%d_%02d.pdf', $year, $month)] = $this->buildPdfBinary(
+                    $expenses,
+                    $year,
+                    $month,
+                    $currencySymbol
+                );
+            }
         }
 
-        return $this->zipDownloadResponse($files, 'expenses_all_pdf.zip');
+        if ($files === []) {
+            return redirect()->route('reports.index')
+                ->withErrors(['reports' => 'No valid months to download.']);
+        }
+
+        return $this->zipDownloadResponse($files, $zipFilename);
+    }
+
+    /**
+     * @param  list<mixed>  $requestedKeys
+     * @return list<string>
+     */
+    private function filterValidMonthKeys(int $userId, array $requestedKeys): array
+    {
+        $allowed = array_flip(array_column($this->buildMonthSummaries($userId), 'key'));
+        $valid = [];
+
+        foreach ($requestedKeys as $key) {
+            if (!is_string($key) || !preg_match('/^\d{4}-\d{2}$/', $key) || !isset($allowed[$key])) {
+                continue;
+            }
+            $valid[$key] = true;
+        }
+
+        $keys = array_keys($valid);
+        sort($keys);
+
+        return $keys;
     }
 
     /**
@@ -175,7 +231,7 @@ class ReportsController extends Controller
         }
 
         $keys = array_keys($buckets);
-        rsort($keys);
+        sort($keys);
 
         $summaries = [];
         foreach ($keys as $key) {

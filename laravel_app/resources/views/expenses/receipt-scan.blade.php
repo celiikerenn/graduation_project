@@ -4,9 +4,11 @@
 
 @section('content')
 <h1>Receipt Scan</h1>
-<p style="margin-top:-0.35rem; margin-bottom:1rem; color:var(--muted); font-size:0.9rem;">
+<p style="margin-top:-0.35rem; margin-bottom:0.75rem; color:var(--muted); font-size:0.9rem;">
     Upload a receipt photo. OCR reads amount, date and category — you confirm before saving.
 </p>
+
+@include('partials.ai-insights', ['insights' => $aiInsights ?? []])
 
 @php
     $confidence = $scan['confidence'] ?? 'low';
@@ -64,6 +66,7 @@
                             aria-label="Drag and drop or select a receipt image"
                         >
                             <p class="receipt-scan-action-box__title">Drag & drop</p>
+                            <p class="receipt-scan-action-box__or">or</p>
                             <p class="receipt-scan-action-box__subtitle">select</p>
                         </div>
                         <p class="receipt-scan-or receipt-scan-or--large">or</p>
@@ -149,6 +152,15 @@
                             <option value="{{ $cat['id'] }}" {{ (string) old('category_id', $scan['category_id'] ?? '') === (string) $cat['id'] ? 'selected' : '' }}>{{ $cat['name'] }}</option>
                         @endforeach
                     </select>
+                    @if(!empty($scan['category_source']) && ($scan['category_source'] ?? '') === 'memory')
+                        <p style="margin:0.35rem 0 0; font-size:0.78rem; color:var(--muted);">
+                            Category suggested from your saved receipt history.
+                        </p>
+                    @elseif(!empty($scan['category_name']) && empty($scan['category_id']))
+                        <p style="margin:0.35rem 0 0; font-size:0.78rem; color:var(--muted);">
+                            Detected “{{ $scan['category_name'] }}” but no matching category — please pick one (it will be remembered next time).
+                        </p>
+                    @endif
                     @error('category_id') <div class="text-danger">{{ $message }}</div> @enderror
                 </div>
                 <div class="form-group">
@@ -175,7 +187,12 @@
                 </div>
                 <div class="form-group">
                     <label for="description">Description / merchant</label>
-                    <textarea id="description" name="description" rows="2" placeholder="Optional">{{ old('description', '') }}</textarea>
+                    <textarea id="description" name="description" rows="2" placeholder="Optional">{{ old('description', $scan['description'] ?? '') }}</textarea>
+                    @if(!empty($scan['description']) && !empty($scan['description_source']))
+                        <p style="margin:0.35rem 0 0; font-size:0.78rem; color:var(--muted);">
+                            Suggested from receipt ({{ $scan['description_source'] === 'ai' ? 'AI' : 'OCR' }}). You can edit before saving.
+                        </p>
+                    @endif
                     @error('description') <div class="text-danger">{{ $message }}</div> @enderror
                 </div>
 
@@ -245,7 +262,7 @@
         justify-content: center;
         gap: 0.2rem;
         width: 100%;
-        min-height: 5.5rem;
+        min-height: 6.25rem;
         padding: 1.25rem 1rem;
         border: 2px dashed var(--border2);
         border-radius: 12px;
@@ -272,9 +289,18 @@
         color: var(--txt);
         line-height: 1.3;
     }
+    .receipt-scan-action-box__or {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--txt);
+        line-height: 1.2;
+        text-transform: lowercase;
+        letter-spacing: 0.02em;
+    }
     .receipt-scan-action-box__subtitle {
         margin: 0;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         font-weight: 600;
         color: var(--txt);
         line-height: 1.3;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
+use App\Support\PageInsights;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -53,6 +54,7 @@ class ExpenseController extends Controller
         return view('expenses.create', [
             'categories' => $categories,
             'autoFixedChecked' => $autoChecked,
+            'aiInsights' => PageInsights::forCreateExpense(),
         ]);
     }
 
@@ -281,6 +283,12 @@ class ExpenseController extends Controller
             // API hata verirse boş liste
         }
 
+        $data['aiInsights'] = PageInsights::forExpenses(
+            (int) ($data['total'] ?? 0),
+            (bool) ($data['filtersActive'] ?? false),
+            count($data['months'] ?? [])
+        );
+
         return view('expenses.index', $data);
     }
 
@@ -345,6 +353,16 @@ class ExpenseController extends Controller
         }
 
         try {
+            try {
+                $expense = $this->api->getExpense($userId, $expenseId);
+                if (!empty($expense['receipt_image_path'])) {
+                    \Illuminate\Support\Facades\Storage::disk('public')
+                        ->delete($expense['receipt_image_path']);
+                }
+            } catch (\Throwable) {
+                // continue delete even if file lookup fails
+            }
+
             $this->api->deleteExpense($userId, $expenseId);
         } catch (\Illuminate\Http\Client\RequestException $e) {
             $body = $e->response->json();

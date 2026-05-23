@@ -78,6 +78,23 @@ def _migrate_category_names_tr_to_en(db) -> None:
     db.commit()
 
 
+def _ensure_receipt_image_column() -> None:
+    """Add receipt_image_path to expenses when upgrading an existing database."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    if "expenses" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("expenses")}
+    if "receipt_image_path" in cols:
+        return
+    with engine.connect() as conn:
+        conn.execute(
+            text("ALTER TABLE expenses ADD COLUMN receipt_image_path VARCHAR(512) NULL")
+        )
+        conn.commit()
+
+
 @app.on_event("startup")
 def startup_init_db():
     """
@@ -85,6 +102,7 @@ def startup_init_db():
     Alembic/migration kullanılmayan basit kurulum senaryosu için.
     """
     Base.metadata.create_all(bind=engine)
+    _ensure_receipt_image_column()
 
     db = SessionLocal()
     try:

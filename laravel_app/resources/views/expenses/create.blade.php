@@ -4,9 +4,11 @@
 
 @section('content')
 <h1>Add Expense</h1>
-<p style="margin-top:-0.35rem; margin-bottom:1rem; color:var(--muted); font-size:0.9rem;">
+<p style="margin-top:-0.35rem; margin-bottom:0.75rem; color:var(--muted); font-size:0.9rem;">
     Enter category, amount and date yourself. To scan a receipt, use <a href="{{ route('expenses.receipt-scan') }}" style="color:var(--acc); font-weight:600;">Receipt Scan</a> in the sidebar.
 </p>
+
+@include('partials.ai-insights', ['insights' => $aiInsights ?? []])
 
 <div class="card" id="manual-expense-box">
     <form method="POST" action="{{ route('expenses.store') }}">

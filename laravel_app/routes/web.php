@@ -37,6 +37,8 @@ Route::middleware('web')->group(function () {
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
     Route::get('/reports/download-all/csv.zip', [ReportsController::class, 'downloadAllCsvZip'])->name('reports.download-all-csv');
     Route::get('/reports/download-all/pdf.zip', [ReportsController::class, 'downloadAllPdfZip'])->name('reports.download-all-pdf');
+    Route::post('/reports/download-selected/csv.zip', [ReportsController::class, 'downloadSelectedCsvZip'])->name('reports.download-selected-csv');
+    Route::post('/reports/download-selected/pdf.zip', [ReportsController::class, 'downloadSelectedPdfZip'])->name('reports.download-selected-pdf');
     Route::get('/reports/{year}/{month}.csv', [ReportsController::class, 'downloadCsv'])->name('reports.csv');
     Route::get('/reports/{year}/{month}.pdf', [ReportsController::class, 'downloadPdf'])->name('reports.pdf');
 

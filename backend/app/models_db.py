@@ -33,6 +33,20 @@ class ExpenseCategory(Base):
     expenses = relationship("Expense", back_populates="category")
 
 
+class ReceiptMerchantMemory(Base):
+    """User-specific OCR hints: keyword on receipt text → category."""
+
+    __tablename__ = "receipt_merchant_memories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    keyword = Column(String(120), nullable=False)
+    category_name = Column(String(100), nullable=False)
+    use_count = Column(Integer, default=1, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class Expense(Base):
     __tablename__ = "expenses"
 
@@ -41,6 +55,7 @@ class Expense(Base):
     category_id = Column(Integer, ForeignKey("expense_categories.id", ondelete="RESTRICT"), nullable=False)
     amount = Column(DECIMAL(12, 2), nullable=False)
     description = Column(Text, nullable=True)
+    receipt_image_path = Column(String(512), nullable=True)
     expense_date = Column(Date, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

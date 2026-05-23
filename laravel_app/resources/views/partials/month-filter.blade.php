@@ -2,11 +2,17 @@
     $months = $months ?? [];
     $selected = $selected ?? null;
     $action = $action ?? url()->current();
+    $hidden = $hidden ?? [];
 @endphp
 
 @if(count($months) > 0)
 <div class="card filter-toolbar">
     <form method="GET" action="{{ $action }}" class="filter-toolbar__form">
+        @foreach($hidden as $name => $value)
+            @if($value !== null && $value !== '')
+                <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+            @endif
+        @endforeach
         <div class="select-field select-field--compact">
             <select
                 id="month"

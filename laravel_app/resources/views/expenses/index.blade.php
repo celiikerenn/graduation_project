@@ -245,6 +245,8 @@
     Review, edit or delete your past expenses. Use this list to keep your spending history up to date.
 </p>
 
+@include('partials.ai-insights', ['insights' => $aiInsights ?? []])
+
 <div class="expenses-page-layout">
     <aside class="expenses-filter-sidebar" aria-label="Expense browsing">
         @include('partials.expenses-month-picker', [
@@ -356,8 +358,11 @@
                     fn ($v) => $v !== null && $v !== ''
                 );
             @endphp
-            <nav aria-label="Pagination" style="margin-top:0.75rem;" class="expenses-pagination">
-                <ul style="list-style:none; padding-left:0; display:flex; gap:0.35rem; flex-wrap:wrap;">
+            <nav class="app-pagination" aria-label="Expenses pagination">
+                <p class="app-pagination__info">
+                    Page {{ $current }} of {{ $last }} · {{ $total }} records total
+                </p>
+                <ul class="app-pagination__links">
                     @if($current > 1)
                         <li>
                             <a href="{{ route('expenses.index', array_merge($paginationQuery, ['page' => $current - 1])) }}"
@@ -367,7 +372,6 @@
                             </a>
                         </li>
                     @endif
-
                     @for($p = 1; $p <= $last; $p++)
                         <li>
                             @if($p === $current)
@@ -384,7 +388,6 @@
                             @endif
                         </li>
                     @endfor
-
                     @if($current < $last)
                         <li>
                             <a href="{{ route('expenses.index', array_merge($paginationQuery, ['page' => $current + 1])) }}"

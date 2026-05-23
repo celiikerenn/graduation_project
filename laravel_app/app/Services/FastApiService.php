@@ -32,11 +32,12 @@ class FastApiService
     public function createExpense(int $userId, array $data): array
     {
         $payload = [
-            'user_id'      => $userId,
-            'category_id'  => (int) $data['category_id'],
-            'amount'       => (float) $data['amount'],
-            'description'  => $data['description'] ?? null,
-            'expense_date' => $data['expense_date'],
+            'user_id'            => $userId,
+            'category_id'        => (int) $data['category_id'],
+            'amount'             => (float) $data['amount'],
+            'description'        => $data['description'] ?? null,
+            'receipt_image_path' => $data['receipt_image_path'] ?? null,
+            'expense_date'       => $data['expense_date'],
         ];
 
         $response = Http::timeout($this->timeout)
@@ -249,6 +250,29 @@ class FastApiService
         }
 
         return $response->json();
+    }
+
+    /**
+     * Remember merchant/category mapping after user confirms a receipt scan.
+     */
+    public function learnReceiptMemory(int $userId, array $data): void
+    {
+        $response = Http::timeout($this->timeout)
+            ->asForm()
+            ->post("{$this->baseUrl}/api/receipts/learn", [
+                'user_id'     => $userId,
+                'category_id' => (int) ($data['category_id'] ?? 0),
+                'description' => $data['description'] ?? '',
+                'raw_text'    => $data['raw_text'] ?? '',
+            ]);
+
+        $this->logIfError($response, 'learnReceiptMemory');
+        if ($response->failed()) {
+            Log::warning('learnReceiptMemory failed', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+        }
     }
 
     /**

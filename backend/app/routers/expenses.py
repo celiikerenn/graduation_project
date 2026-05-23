@@ -31,6 +31,7 @@ def expense_to_response(exp: Expense) -> ExpenseResponse:
         category_name=exp.category.name if exp.category else "",
         amount=exp.amount,
         description=exp.description,
+        receipt_image_path=exp.receipt_image_path,
         expense_date=exp.expense_date,
         created_at=exp.created_at,
     )
@@ -60,6 +61,7 @@ def create_expense(data: ExpenseCreate, db: Session = Depends(get_db)):
             category_id=data.category_id,
             amount=data.amount,
             description=data.description,
+            receipt_image_path=data.receipt_image_path,
             expense_date=data.expense_date,
         )
         # Response için category ilişkisini hazır tut
@@ -175,6 +177,8 @@ def update_expense(
         exp.amount = data.amount
     if data.description is not None:
         exp.description = data.description
+    if data.receipt_image_path is not None:
+        exp.receipt_image_path = data.receipt_image_path
     if data.expense_date is not None:
         if data.expense_date > date.today():
             raise HTTPException(status_code=400, detail="Expense date cannot be in the future.")

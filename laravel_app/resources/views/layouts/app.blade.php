@@ -775,8 +775,97 @@
         .badge-other { background: color-mix(in srgb, var(--cat-other) 34%, transparent); color: var(--cat-other); border: 1px solid color-mix(in srgb, var(--cat-other) 58%, transparent); }
         .badge-rent { background: color-mix(in srgb, var(--cat-rent) 38%, transparent); color: var(--cat-rent); border: 1px solid color-mix(in srgb, var(--cat-rent) 62%, transparent); }
 
+        .ai-insights {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            margin-bottom: 1.25rem;
+        }
+        .ai-insight {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            flex: 1 1 15rem;
+            min-width: min(100%, 14rem);
+            max-width: 100%;
+            padding: 0.75rem 0.9rem;
+            border-radius: 12px;
+            border: 1px solid var(--border2);
+            background: linear-gradient(145deg, rgba(37, 99, 235, 0.07) 0%, var(--surface) 55%);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        .ai-insight--warn {
+            border-color: rgba(245, 158, 11, 0.35);
+            background: linear-gradient(145deg, rgba(245, 158, 11, 0.1) 0%, var(--surface) 55%);
+        }
+        .ai-insight--info {
+            border-color: rgba(37, 99, 235, 0.2);
+        }
+        .ai-insight__icon {
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 9px;
+            background: linear-gradient(145deg, var(--acc) 0%, var(--acc2) 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+        }
+        .ai-insight__icon svg {
+            width: 1.1rem;
+            height: 1.1rem;
+        }
+        .ai-insight__body {
+            min-width: 0;
+            flex: 1;
+        }
+        .ai-insight__label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--acc);
+            margin-bottom: 0.25rem;
+        }
+        .ai-insight--warn .ai-insight__label {
+            color: #b45309;
+        }
+        .ai-insight__text {
+            margin: 0;
+            font-size: 0.88rem;
+            font-weight: 500;
+            line-height: 1.45;
+            color: var(--txt);
+        }
+
         .main-inner > h1 {
             text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        .app-pagination {
+            margin-top: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border2);
+        }
+        .app-pagination__info {
+            margin: 0;
+            font-size: 0.875rem;
+            color: var(--muted);
+        }
+        .app-pagination__links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
         }
 
         .budget-bar {
