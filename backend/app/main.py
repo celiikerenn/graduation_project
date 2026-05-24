@@ -29,7 +29,6 @@ app.include_router(expenses.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(receipts.router, prefix="/api")
-
 DEFAULT_CATEGORIES = [
     "Food",
     "Transport",
@@ -95,6 +94,26 @@ def _ensure_receipt_image_column() -> None:
         conn.commit()
 
 
+def _ensure_user_notification_columns() -> None:
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    if "users" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("users")}
+    alters = []
+    if "email_notifications" not in cols:
+        alters.append("ADD COLUMN email_notifications TINYINT(1) NOT NULL DEFAULT 1")
+    if "anomaly_last_notified_month" not in cols:
+        alters.append("ADD COLUMN anomaly_last_notified_month VARCHAR(7) NULL")
+    if not alters:
+        return
+    with engine.connect() as conn:
+        for clause in alters:
+            conn.execute(text(f"ALTER TABLE users {clause}"))
+        conn.commit()
+
+
 @app.on_event("startup")
 def startup_init_db():
     """
@@ -103,6 +122,7 @@ def startup_init_db():
     """
     Base.metadata.create_all(bind=engine)
     _ensure_receipt_image_column()
+    _ensure_user_notification_columns()
 
     db = SessionLocal()
     try:

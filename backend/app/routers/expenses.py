@@ -12,12 +12,18 @@ from sqlalchemy import func, extract
 from app.database import get_db
 from app.models_db import Expense, ExpenseCategory, User
 from app.schemas import (
+    AnomalyCheckResponse,
     ExpenseCreate,
     ExpenseUpdate,
     ExpenseResponse,
     ExpenseListResponse,
     MonthlyTotalResponse,
 )
+from app.services.expense_analytics import (
+    compute_spending_anomaly,
+    category_spending_for_month,
+)
+from app.services.report_charts import build_report_chart_images
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -104,6 +110,57 @@ def list_expenses_by_user(
         expenses=[expense_to_response(e) for e in expenses],
         total=total,
     )
+
+@router.get("/check-anomalies", response_model=AnomalyCheckResponse)
+def check_anomalies(
+    user_id: int = Query(...),
+    mark_notified: bool = Query(False, description="Set true after email sent"),
+    db: Session = Depends(get_db),
+):
+    if user_id < 1:
+        raise HTTPException(status_code=400, detail="Invalid user id.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    result = compute_spending_anomaly(db, user_id)
+    month = result["month"]
+    already = user.anomaly_last_notified_month == month
+    should_notify = (
+        bool(user.email_notifications)
+        and result["has_anomalies"]
+        and not already
+    )
+
+    if mark_notified and should_notify:
+        user.anomaly_last_notified_month = month
+        db.add(user)
+        db.commit()
+
+    return AnomalyCheckResponse(
+        month=month,
+        has_anomalies=result["has_anomalies"],
+        current_month_total=result["current_month_total"],
+        baseline_average=result["baseline_average"],
+        increase_percent=result["increase_percent"],
+        should_notify=should_notify,
+        already_notified=already,
+    )
+
+
+@router.get("/report-chart-images")
+def get_report_chart_images(
+    user_id: int = Query(...),
+    year: int = Query(..., ge=2000, le=2100),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+):
+    if user_id < 1:
+        raise HTTPException(status_code=400, detail="Invalid user id.")
+    cat_totals = category_spending_for_month(db, user_id, year, month)
+    return build_report_chart_images(cat_totals)
+
 
 @router.get("/monthly-total", response_model=MonthlyTotalResponse)
 def get_monthly_total(

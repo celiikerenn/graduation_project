@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\FastApiService;
 use App\Support\Currency;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -38,6 +39,7 @@ class ProfileController extends Controller
             'name'           => $request->session()->get('user_name'),
             'email'          => $request->session()->get('user_email'),
             'categories'     => $categories,
+            'emailNotifications' => (bool) $request->session()->get('email_notifications', true),
             'fixedTemplates' => $request->session()->get('fixed_expense_templates', $this->defaultFixedTemplates()),
             'currency'       => Currency::normalize(session('currency')),
             'monthlyBudget'  => (float) $request->session()->get('monthly_budget', 0),
@@ -164,6 +166,44 @@ class ProfileController extends Controller
         $request->session()->put('currency', $code);
 
         return redirect()->route('profile.show')->with('success', 'Currency preference saved.');
+    }
+
+    public function updateEmailNotifications(Request $request): RedirectResponse|JsonResponse
+    {
+        $userId = $request->session()->get('user_id');
+        if (!$userId) {
+            return redirect()->route('login');
+        }
+
+        $enabled = $request->input('email_notifications') === '1'
+            || $request->input('email_notifications') === 1;
+
+        try {
+            $this->api->updateNotificationSettings((int) $userId, $enabled);
+        } catch (\Throwable $e) {
+            $message = 'Could not update notification settings.';
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+
+            return back()->withErrors(['email_notifications' => $message]);
+        }
+
+        $request->session()->put('email_notifications', $enabled);
+
+        $message = $enabled
+            ? 'Email alerts enabled.'
+            : 'Email alerts disabled.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok'      => true,
+                'enabled' => $enabled,
+                'message' => $message,
+            ]);
+        }
+
+        return redirect()->route('profile.show')->with('success', $message);
     }
 }
 

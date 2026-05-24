@@ -1,7 +1,7 @@
 """
 SQLAlchemy ORM modelleri - MySQL tablolarıyla eşleşir.
 """
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Enum, DECIMAL, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, Text, Date, DateTime, Enum, DECIMAL, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,8 @@ class User(Base):
     password = Column(String(255), nullable=False)
     role = Column(Enum("admin", "user"), default="user", nullable=False)
     monthly_budget = Column(DECIMAL(12, 2), nullable=True)
+    email_notifications = Column(Boolean, default=True, nullable=False, server_default="1")
+    anomaly_last_notified_month = Column(String(7), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

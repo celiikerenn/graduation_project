@@ -30,6 +30,24 @@ class ExpenseController extends Controller
         }
     }
 
+    /**
+     * @return list<int>
+     */
+    private function parseCategoryFilterIds(Request $request): array
+    {
+        $raw = $request->query('category_id', []);
+        if (!is_array($raw)) {
+            $raw = ($raw !== null && $raw !== '') ? [$raw] : [];
+        }
+
+        $ids = array_values(array_unique(array_filter(
+            array_map(static fn ($v) => (int) $v, $raw),
+            static fn (int $id) => $id > 0
+        )));
+
+        return $ids;
+    }
+
     public function __construct(
         protected FastApiService $api
     ) {}
@@ -175,9 +193,9 @@ class ExpenseController extends Controller
         $perPage = 10;
         $categories = [];
         $filters = [
-            'date_from'   => '',
-            'date_to'     => '',
-            'category_id' => '',
+            'date_from'    => '',
+            'date_to'      => '',
+            'category_ids' => [],
         ];
         $months = [];
         $selectedMonth = null;
@@ -207,27 +225,32 @@ class ExpenseController extends Controller
                 $byMonth[$monthKey] = true;
             }
             $months = array_keys($byMonth);
+            $currentMonthKey = now()->format('Y-m');
+            if (!in_array($currentMonthKey, $months, true)) {
+                $months[] = $currentMonthKey;
+            }
             sort($months);
 
-            $defaultMonth = !empty($months) ? end($months) : null;
+            $defaultMonth = $currentMonthKey;
 
-            $hasExtraFilters = $request->has('date_from')
-                || $request->has('date_to')
-                || $request->has('category_id');
+            $categoryIds = $this->parseCategoryFilterIds($request);
+
+            $hasDateFilters = $request->has('date_from') || $request->has('date_to');
+            $filtersActive = $hasDateFilters;
 
             $selectedMonth = null;
-            if (!$hasExtraFilters) {
+            if (!$hasDateFilters) {
                 $selectedMonth = $request->query('month');
-                if (empty($selectedMonth) || !in_array($selectedMonth, $months, true)) {
-                    $selectedMonth = $defaultMonth;
+                if (empty($selectedMonth) || !preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
+                    $selectedMonth = $currentMonthKey;
+                } elseif (!in_array($selectedMonth, $months, true)) {
+                    $months[] = $selectedMonth;
+                    sort($months);
                 }
             }
 
-            $dateFrom = $hasExtraFilters ? $this->parseFilterDate($request->query('date_from')) : null;
-            $dateTo = $hasExtraFilters ? $this->parseFilterDate($request->query('date_to')) : null;
-            $categoryId = ($hasExtraFilters && $request->filled('category_id'))
-                ? (int) $request->query('category_id')
-                : null;
+            $dateFrom = $hasDateFilters ? $this->parseFilterDate($request->query('date_from')) : null;
+            $dateTo = $hasDateFilters ? $this->parseFilterDate($request->query('date_to')) : null;
 
             if ($dateFrom !== null && $dateTo !== null && $dateFrom > $dateTo) {
                 [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
@@ -241,7 +264,7 @@ class ExpenseController extends Controller
                 $expenseDate = \Carbon\Carbon::parse($expense['expense_date'])->format('Y-m-d');
                 $monthKey = \Carbon\Carbon::parse($expense['expense_date'])->format('Y-m');
 
-                if (!$hasExtraFilters && $selectedMonth !== null && $monthKey !== $selectedMonth) {
+                if (!$hasDateFilters && $selectedMonth !== null && $monthKey !== $selectedMonth) {
                     continue;
                 }
                 if ($dateFrom !== null && $expenseDate < $dateFrom) {
@@ -250,7 +273,7 @@ class ExpenseController extends Controller
                 if ($dateTo !== null && $expenseDate > $dateTo) {
                     continue;
                 }
-                if ($categoryId !== null && (int) ($expense['category_id'] ?? 0) !== $categoryId) {
+                if (!empty($categoryIds) && !in_array((int) ($expense['category_id'] ?? 0), $categoryIds, true)) {
                     continue;
                 }
                 $filtered[] = $expense;
@@ -272,11 +295,11 @@ class ExpenseController extends Controller
                 'months'         => $months,
                 'selectedMonth'  => $selectedMonth,
                 'defaultMonth'   => $defaultMonth,
-                'filtersActive'  => $hasExtraFilters,
+                'filtersActive'  => $filtersActive,
                 'filters'        => [
-                    'date_from'   => $hasExtraFilters ? ($request->query('date_from') ?? '') : '',
-                    'date_to'     => $hasExtraFilters ? ($request->query('date_to') ?? '') : '',
-                    'category_id' => $categoryId !== null ? (string) $categoryId : '',
+                    'date_from'    => $request->query('date_from') ?? '',
+                    'date_to'      => $request->query('date_to') ?? '',
+                    'category_ids' => $categoryIds,
                 ],
             ];
         } catch (\Throwable $e) {

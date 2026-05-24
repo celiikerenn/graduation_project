@@ -8,6 +8,9 @@
 <div class="card filter-toolbar filter-toolbar--sidebar expenses-month-picker">
     <p class="expenses-filter__heading">Month</p>
     <form method="GET" action="{{ route('expenses.index') }}" class="expenses-filter__form" id="expenses-month-form">
+        @foreach($preserveCategoryIds ?? [] as $catId)
+            <input type="hidden" name="category_id[]" value="{{ $catId }}">
+        @endforeach
         <div class="expenses-filter__field">
             <select id="month" name="month" class="select-control" aria-label="Select month" onchange="this.form.submit()" @if($filtersActive) disabled @endif>
                 @if($filtersActive)
@@ -28,7 +31,7 @@
             </select>
         </div>
         @if($filtersActive)
-            <p class="expenses-month-picker__note">Filters are active. Clear filters to browse by month.</p>
+            <p class="expenses-month-picker__note">Date range is active. Clear filters to browse by month.</p>
         @endif
     </form>
 </div>

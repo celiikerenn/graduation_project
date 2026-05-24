@@ -72,6 +72,7 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
             email=user.email,
             role=str(user.role),
             monthly_budget=user.monthly_budget,
+            email_notifications=bool(getattr(user, "email_notifications", True)),
         )
     except HTTPException:
         raise
@@ -98,7 +99,41 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
         email=user.email,
         role=str(user.role),
         monthly_budget=user.monthly_budget,
+        email_notifications=bool(getattr(user, "email_notifications", True)),
     )
+
+
+@router.get("/users-with-notifications")
+def users_with_notifications(db: Session = Depends(get_db)):
+    """Users opted in to email alerts (for Laravel scheduler)."""
+    rows = db.query(User).filter(User.email_notifications.is_(True)).all()
+    return [
+        {"id": u.id, "email": u.email, "name": u.name}
+        for u in rows
+    ]
+
+
+@router.post("/update-notification-settings")
+def update_notification_settings(payload: dict, db: Session = Depends(get_db)):
+    user_id = int(payload.get("user_id", 0) or 0)
+    if user_id < 1:
+        raise HTTPException(status_code=400, detail="Invalid user id.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if "email_notifications" in payload:
+        user.email_notifications = bool(payload.get("email_notifications"))
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "user_id": user.id,
+        "email_notifications": bool(user.email_notifications),
+    }
 
 
 @router.post("/update-budget")

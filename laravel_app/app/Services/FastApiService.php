@@ -298,6 +298,73 @@ class FastApiService
         return $response->json();
     }
 
+    /**
+     * @return array{month: string, has_anomalies: bool, current_month_total: float, baseline_average: float, increase_percent: float, should_notify: bool, already_notified: bool}
+     */
+    public function checkAnomalies(int $userId, bool $markNotified = false): array
+    {
+        $response = Http::timeout($this->timeout)
+            ->get("{$this->baseUrl}/api/expenses/check-anomalies", [
+                'user_id'        => $userId,
+                'mark_notified'  => $markNotified ? 'true' : 'false',
+            ]);
+
+        $this->logIfError($response, 'checkAnomalies');
+        $response->throw();
+
+        return $response->json();
+    }
+
+    /**
+     * @return list<array{id: int, email: string, name: string}>
+     */
+    public function usersWithNotifications(): array
+    {
+        $response = Http::timeout($this->timeout)
+            ->get("{$this->baseUrl}/api/auth/users-with-notifications");
+
+        $this->logIfError($response, 'usersWithNotifications');
+        $response->throw();
+
+        $data = $response->json();
+
+        return is_array($data) ? $data : [];
+    }
+
+    public function updateNotificationSettings(int $userId, bool $enabled): array
+    {
+        $response = Http::timeout($this->timeout)
+            ->post("{$this->baseUrl}/api/auth/update-notification-settings", [
+                'user_id'              => $userId,
+                'email_notifications'  => $enabled,
+            ]);
+
+        $this->logIfError($response, 'updateNotificationSettings');
+        $response->throw();
+
+        return $response->json();
+    }
+
+    /**
+     * @return array{pie_png_base64: ?string, bar_png_base64: ?string}
+     */
+    public function getReportChartImages(int $userId, int $year, int $month): array
+    {
+        $response = Http::timeout($this->timeout)
+            ->get("{$this->baseUrl}/api/expenses/report-chart-images", [
+                'user_id' => $userId,
+                'year'    => $year,
+                'month'   => $month,
+            ]);
+
+        $this->logIfError($response, 'getReportChartImages');
+        if ($response->failed()) {
+            return ['pie_png_base64' => null, 'bar_png_base64' => null];
+        }
+
+        return $response->json();
+    }
+
     private function logIfError($response, string $method): void
     {
         if ($response->failed()) {

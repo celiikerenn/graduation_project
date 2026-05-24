@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AnomalyNotificationService;
 use App\Services\FastApiService;
 use App\Support\Currency;
 use Illuminate\Http\Request;
@@ -16,7 +17,8 @@ use Illuminate\View\View;
 class DashboardController extends Controller
 {
     public function __construct(
-        protected FastApiService $api
+        protected FastApiService $api,
+        protected AnomalyNotificationService $anomalyNotifier,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -73,6 +75,13 @@ class DashboardController extends Controller
             // show empty if API is unreachable
         }
 
+        $userId = (int) $request->session()->get('user_id');
+        $userEmail = (string) $request->session()->get('user_email', '');
+        $userName = (string) $request->session()->get('user_name', 'User');
+        if ($userId > 0 && $userEmail !== '') {
+            $this->anomalyNotifier->notifyIfNeeded($userId, $userEmail, $userName);
+        }
+
         return view('dashboard', [
             'userName'         => $request->session()->get('user_name'),
             'monthly'          => $monthly,
@@ -118,7 +127,7 @@ class DashboardController extends Controller
         $selectedMonthExpenseCount = 0;
         $selectedMonthCategoryCount = 0;
         $selectedMonthLabel = null;
-
+        $now = now();
         try {
             // FastAPI limit üst sınırı 200
             $data = $this->api->listExpenses($userId, 0, 200);
@@ -141,14 +150,21 @@ class DashboardController extends Controller
                 }
             }
 
-            // Ay listesi (harcama olan aylar)
+            // Ay listesi (harcama olan aylar + içinde bulunduğumuz ay)
             $availableMonths = array_keys($availableMonths);
+            $currentMonthKey = $now->format('Y-m');
+            if (!in_array($currentMonthKey, $availableMonths, true)) {
+                $availableMonths[] = $currentMonthKey;
+            }
             sort($availableMonths);
 
-            // Seçili ay: ?month=YYYY-MM, yoksa en son ay
+            // Seçili ay: ?month=YYYY-MM, yoksa bugünün ayı
             $selectedMonth = $request->query('month');
-            if (empty($selectedMonth) || !in_array($selectedMonth, $availableMonths, true)) {
-                $selectedMonth = !empty($availableMonths) ? end($availableMonths) : null;
+            if (empty($selectedMonth) || !preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
+                $selectedMonth = $currentMonthKey;
+            } elseif (!in_array($selectedMonth, $availableMonths, true)) {
+                $availableMonths[] = $selectedMonth;
+                sort($availableMonths);
             }
 
             // Pie / bar için sadece seçili ayın kategorileri
@@ -289,6 +305,7 @@ class DashboardController extends Controller
                     'change_percent' => $changePercent,
                 ];
             }
+
         } catch (\Throwable $e) {
             // API ulaşılamazsa boş grafikler gösterilir
         }

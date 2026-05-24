@@ -351,12 +351,28 @@ class ReportsController extends Controller
             $totalAmount += (float) ($expense['amount'] ?? 0);
         }
 
+        $pieChartBase64 = null;
+        $barChartBase64 = null;
+        $userId = session('user_id');
+        // DomPDF needs the PHP GD extension to embed PNG chart images.
+        if ($userId && extension_loaded('gd')) {
+            try {
+                $charts = $this->api->getReportChartImages((int) $userId, $year, $month);
+                $pieChartBase64 = $charts['pie_png_base64'] ?? null;
+                $barChartBase64 = $charts['bar_png_base64'] ?? null;
+            } catch (\Throwable $e) {
+                // PDF still generated without charts
+            }
+        }
+
         return Pdf::loadView('reports.pdf', [
             'year'           => $year,
             'month'          => $month,
             'expenses'       => $expenses,
             'total'          => $totalAmount,
             'currencySymbol' => $currencySymbol,
+            'pieChartBase64' => $pieChartBase64,
+            'barChartBase64' => $barChartBase64,
         ])->setPaper('a4', 'portrait')->output();
     }
 

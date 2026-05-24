@@ -59,6 +59,7 @@ class AuthController extends Controller
             'user_role' => $user['role'],
             'monthly_budget' => (float)($user['monthly_budget'] ?? 0),
             'currency'  => $currency,
+            'email_notifications' => (bool) ($user['email_notifications'] ?? true),
         ]);
         $request->session()->regenerate();
 
@@ -107,6 +108,7 @@ class AuthController extends Controller
             'user_role' => $user['role'],
             'monthly_budget' => (float)($user['monthly_budget'] ?? 0),
             'currency'  => $currency,
+            'email_notifications' => (bool) ($user['email_notifications'] ?? true),
         ]);
         $request->session()->regenerate();
 

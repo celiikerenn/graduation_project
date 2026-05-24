@@ -3,7 +3,7 @@ Pydantic şemaları - API istek/cevap modelleri.
 """
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     monthly_budget: Optional[Decimal] = None
+    email_notifications: bool = True
 
     class Config:
         from_attributes = True
@@ -115,3 +116,14 @@ class ReceiptScanResponse(BaseModel):
 class ReceiptLearnResponse(BaseModel):
     user_id: int
     keywords_saved: int = 0
+
+
+# ---------- Analytics ----------
+class AnomalyCheckResponse(BaseModel):
+    month: str
+    has_anomalies: bool
+    current_month_total: float
+    baseline_average: float = 0.0
+    increase_percent: float = 0.0
+    should_notify: bool = False
+    already_notified: bool = False

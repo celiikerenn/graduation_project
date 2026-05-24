@@ -411,7 +411,7 @@
             font-weight: 600;
             color: var(--txt);
         }
-        .form-group input,
+        .form-group input:not([type="checkbox"]):not([type="radio"]),
         .form-group select,
         .form-group textarea {
             background: var(--surface2);
@@ -424,6 +424,17 @@
             font-family: 'DM Sans', sans-serif;
             transition: border-color 0.2s, box-shadow 0.2s;
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        }
+        .form-group input[type="checkbox"],
+        .form-group input[type="radio"] {
+            width: auto;
+            margin: 0;
+            padding: 0;
+            border: none;
+            box-shadow: none;
+            background: transparent;
+            accent-color: var(--acc);
+            flex-shrink: 0;
         }
         .form-group input:focus,
         .form-group select:focus,
@@ -1264,15 +1275,21 @@
                 if (typeof TomSelect === "undefined") return;
                 root.querySelectorAll("select.select-enhanced").forEach((el) => {
                     if (el.tomselect) return;
+                    const isMulti = el.multiple;
                     const config = {
-                        allowEmptyOption: true,
+                        allowEmptyOption: !isMulti,
                         create: false,
                         maxOptions: 100,
-                        closeAfterSelect: true,
+                        closeAfterSelect: !isMulti,
                         controlInput: null,
                         dropdownParent: "body",
                         sortField: [{ field: "$order" }],
                     };
+                    if (isMulti) {
+                        config.plugins = { remove_button: { title: "Remove" } };
+                        config.maxItems = null;
+                        config.placeholder = el.getAttribute("placeholder") || "Select…";
+                    }
                     if (el.dataset.submitOnChange === "true") {
                         config.onChange = () => {
                             if (el.form) {

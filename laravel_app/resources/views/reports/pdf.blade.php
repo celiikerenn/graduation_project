@@ -9,14 +9,9 @@
             font-size: 12px;
             color: #111827;
         }
-        h1 {
-            font-size: 18px;
-            margin-bottom: 4px;
-        }
-        p {
-            margin-top: 0;
-            margin-bottom: 10px;
-        }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        h2 { font-size: 14px; margin: 18px 0 8px; }
+        p { margin-top: 0; margin-bottom: 10px; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -34,8 +29,19 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        .text-right {
-            text-align: right;
+        .text-right { text-align: right; }
+        .chart-img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 8px 0 4px;
+        }
+        .summary-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            border-radius: 6px;
         }
     </style>
 </head>
@@ -43,6 +49,24 @@
     <h1>Expenses Report</h1>
     <p>Period: {{ $year }}-{{ sprintf('%02d', $month) }}</p>
 
+    <div class="summary-box">
+        <strong>Total:</strong>
+        {{ number_format((float)($total ?? 0), 2, ',', '.') }} {{ $currencySymbol ?? '₺' }}
+        &nbsp;·&nbsp;
+        <strong>Transactions:</strong> {{ count($expenses ?? []) }}
+    </div>
+
+    @if(!empty($pieChartBase64))
+        <h2>Category distribution</h2>
+        <img class="chart-img" src="data:image/png;base64,{{ $pieChartBase64 }}" alt="Category pie chart">
+    @endif
+
+    @if(!empty($barChartBase64))
+        <h2>Category comparison</h2>
+        <img class="chart-img" src="data:image/png;base64,{{ $barChartBase64 }}" alt="Category bar chart">
+    @endif
+
+    <h2>Expense list</h2>
     <table>
         <thead>
             <tr>
@@ -84,4 +108,3 @@
     </table>
 </body>
 </html>
-

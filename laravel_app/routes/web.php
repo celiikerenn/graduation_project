@@ -45,6 +45,7 @@ Route::middleware('web')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::post('/profile/currency', [ProfileController::class, 'updateCurrency'])->name('profile.currency.update');
     Route::post('/profile/update-budget', [ProfileController::class, 'updateBudget'])->name('profile.update-budget');
+    Route::post('/profile/email-notifications', [ProfileController::class, 'updateEmailNotifications'])->name('profile.email-notifications.update');
 
     Route::get('/profile/budget', [ProfileController::class, 'showBudget'])->name('profile.budget.show');
 

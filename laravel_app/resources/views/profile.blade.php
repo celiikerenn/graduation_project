@@ -113,6 +113,65 @@
             justify-self: end;
         }
     }
+    .notification-settings {
+        margin-top: 1.25rem;
+        padding-top: 1.15rem;
+        border-top: 1px solid var(--border2);
+    }
+    .notification-settings__title {
+        margin: 0 0 0.75rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+    }
+    .notification-toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.85rem;
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .notification-toggle:hover {
+        border-color: rgba(37, 99, 235, 0.35);
+        background: rgba(37, 99, 235, 0.04);
+    }
+    .notification-toggle__input {
+        width: 1.1rem;
+        height: 1.1rem;
+        margin-top: 0.15rem;
+        accent-color: var(--acc);
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .notification-toggle__text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-width: 0;
+    }
+    .notification-toggle__label {
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--txt);
+        line-height: 1.35;
+    }
+    .notification-toggle__desc {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--txt2);
+        line-height: 1.45;
+    }
+    .notification-settings .btn {
+        width: 100%;
+        max-width: 16rem;
+    }
 </style>
 @endpush
 
@@ -221,6 +280,27 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Save</button>
             </form>
+
+            <div class="notification-settings">
+                <p class="notification-settings__title">Email alerts</p>
+                <form method="POST" action="{{ route('profile.email-notifications.update') }}" id="email-notifications-form">
+                    @csrf
+                    <label class="notification-toggle">
+                        <input
+                            type="checkbox"
+                            class="notification-toggle__input"
+                            id="email_notifications"
+                            name="email_notifications"
+                            value="1"
+                            {{ ($emailNotifications ?? true) ? 'checked' : '' }}
+                        >
+                        <span class="notification-toggle__text">
+                            <span class="notification-toggle__label">Email me when monthly spending is unusually high</span>
+                            <span class="notification-toggle__desc">We compare this month&apos;s total spending to your average over the last 3 months. You get an email if it is more than 50% higher.</span>
+                        </span>
+                    </label>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -259,6 +339,59 @@
 
 @push('scripts')
 <script>
+(() => {
+    const notifyForm = document.getElementById('email-notifications-form');
+    const notifyCheckbox = document.getElementById('email_notifications');
+    if (notifyForm && notifyCheckbox) {
+        const csrf = notifyForm.querySelector('input[name="_token"]')?.value || '';
+        let saving = false;
+
+        notifyCheckbox.addEventListener('change', async () => {
+            if (saving) return;
+            saving = true;
+            notifyCheckbox.disabled = true;
+
+            try {
+                const enabled = notifyCheckbox.checked;
+                const body = new FormData();
+                body.append('_token', csrf);
+                body.append('email_notifications', enabled ? '1' : '0');
+                const res = await fetch(notifyForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                    body,
+                });
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok || !data.ok) {
+                    notifyCheckbox.checked = !notifyCheckbox.checked;
+                    const err = data.message || 'Could not update notification settings.';
+                    if (typeof window.appToast === 'function') {
+                        window.appToast(err, 'error');
+                    }
+                    return;
+                }
+
+                if (typeof window.appToast === 'function') {
+                    window.appToast(data.message || 'Preference saved.', 'success');
+                }
+            } catch (e) {
+                notifyCheckbox.checked = !notifyCheckbox.checked;
+                if (typeof window.appToast === 'function') {
+                    window.appToast('Could not update notification settings.', 'error');
+                }
+            } finally {
+                notifyCheckbox.disabled = false;
+                saving = false;
+            }
+        });
+    }
+})();
+
 (() => {
     const rowsWrap = document.getElementById('fixed-template-rows');
     const addBtn = document.getElementById('add-fixed-template-row');

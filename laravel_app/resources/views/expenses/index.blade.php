@@ -202,6 +202,15 @@
         align-items: stretch;
         flex: 1;
     }
+    .expenses-filter__hint {
+        margin: 0.35rem 0 0;
+        font-size: 0.78rem;
+        line-height: 1.35;
+        color: var(--muted);
+    }
+    .expenses-filter-sidebar .ts-wrapper.multi .ts-control {
+        min-height: 2.5rem;
+    }
     .expenses-filter-sidebar .expenses-filters-panel .expenses-filter__actions {
         flex-direction: column;
         align-items: stretch;
@@ -251,11 +260,13 @@
             'months' => $months ?? [],
             'selectedMonth' => $selectedMonth ?? null,
             'filtersActive' => $filtersActive ?? false,
+            'preserveCategoryIds' => $filters['category_ids'] ?? [],
         ])
         @include('partials.expenses-filter', [
             'categories' => $categories ?? [],
             'defaultMonth' => $defaultMonth ?? null,
             'filters' => $filters ?? [],
+            'preserveMonth' => !($filtersActive ?? false) ? ($selectedMonth ?? null) : null,
         ])
     </aside>
 
@@ -343,17 +354,17 @@
             @php
                 $current = $page ?? 1;
                 $last = $totalPages ?? 1;
+                $paginationBase = [
+                    'month' => ($filtersActive ?? false) ? null : ($selectedMonth ?? null),
+                    'date_from' => ($filtersActive ?? false) ? ($filters['date_from'] ?? null) : null,
+                    'date_to' => ($filtersActive ?? false) ? ($filters['date_to'] ?? null) : null,
+                ];
+                if (!empty($filters['category_ids'] ?? [])) {
+                    $paginationBase['category_id'] = $filters['category_ids'];
+                }
                 $paginationQuery = array_filter(
-                    ($filtersActive ?? false)
-                        ? [
-                            'date_from' => $filters['date_from'] ?? null,
-                            'date_to' => $filters['date_to'] ?? null,
-                            'category_id' => $filters['category_id'] ?? null,
-                        ]
-                        : [
-                            'month' => $selectedMonth ?? null,
-                        ],
-                    fn ($v) => $v !== null && $v !== ''
+                    $paginationBase,
+                    fn ($v) => $v !== null && $v !== '' && $v !== []
                 );
             @endphp
             <nav class="app-pagination" aria-label="Expenses pagination">
