@@ -38,8 +38,6 @@
 <h1>Dashboard</h1>
 <p>Welcome, <strong>{{ $welcomeFirstName !== '' ? $welcomeFirstName : 'User' }}</strong>.</p>
 
-@include('partials.ai-insights', ['insights' => $aiInsights ?? []])
-
 <div class="card" style="display:flex; flex-wrap:wrap; gap:1.5rem; align-items:flex-start;">
     <div style="flex:1 1 260px;">
         @php

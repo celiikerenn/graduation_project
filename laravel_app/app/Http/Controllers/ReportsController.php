@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
 use App\Support\Currency;
-use App\Support\PageInsights;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -43,7 +42,6 @@ class ReportsController extends Controller
             'totalPages'     => $totalPages,
             'totalMonths'    => $totalMonths,
             'currencySymbol' => Currency::symbol(session('currency')),
-            'aiInsights'     => PageInsights::forReports($totalMonths),
         ]);
     }
 

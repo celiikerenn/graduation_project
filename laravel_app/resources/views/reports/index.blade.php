@@ -188,8 +188,6 @@
     Download your expenses per month as CSV or PDF, or select several months and grab them in one ZIP.
 </p>
 
-@include('partials.ai-insights', ['insights' => $aiInsights ?? []])
-
 @error('reports')
     <div class="text-danger" style="margin-bottom:1rem;">{{ $message }}</div>
 @enderror

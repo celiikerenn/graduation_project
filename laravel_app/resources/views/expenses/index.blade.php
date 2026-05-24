@@ -245,8 +245,6 @@
     Review, edit or delete your past expenses. Use this list to keep your spending history up to date.
 </p>
 
-@include('partials.ai-insights', ['insights' => $aiInsights ?? []])
-
 <div class="expenses-page-layout">
     <aside class="expenses-filter-sidebar" aria-label="Expense browsing">
         @include('partials.expenses-month-picker', [

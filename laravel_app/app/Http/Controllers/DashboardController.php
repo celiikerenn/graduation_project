@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Services\FastApiService;
 use App\Support\Currency;
-use App\Support\PageInsights;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
@@ -74,8 +73,6 @@ class DashboardController extends Controller
             // show empty if API is unreachable
         }
 
-        $monthlyBudget = (float) session('monthly_budget', 0);
-
         return view('dashboard', [
             'userName'         => $request->session()->get('user_name'),
             'monthly'          => $monthly,
@@ -86,7 +83,6 @@ class DashboardController extends Controller
             'monthTotalPages'  => $monthTotalPages,
             'monthTotalCount'  => $monthTotalCount,
             'perMonthPage'     => $perMonthPage,
-            'aiInsights'       => PageInsights::forDashboard($monthly, $monthlyBudget, $recentMonths),
         ]);
     }
 

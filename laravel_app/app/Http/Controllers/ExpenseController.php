@@ -283,12 +283,6 @@ class ExpenseController extends Controller
             // API hata verirse boş liste
         }
 
-        $data['aiInsights'] = PageInsights::forExpenses(
-            (int) ($data['total'] ?? 0),
-            (bool) ($data['filtersActive'] ?? false),
-            count($data['months'] ?? [])
-        );
-
         return view('expenses.index', $data);
     }
 
