@@ -120,7 +120,7 @@ def _normalize_amount_token(raw: str) -> Optional[Decimal]:
 # Do not treat space as thousands separator (OCR: "428 236,08" must not become 428236,08).
 _AMOUNT_PATTERNS = (
     r"\d{1,3}(?:\.\d{3})+(?:,\d{2})",  # 1.234,56
-    r"\d+[.,]\d{2}",  # 230,00 or 284.94
+    r"\d+[.,]\s*\d{2}",  # 230,00 or 597, 95 (OCR space before kuruş)
     r"(?<!\d)\d{2,5}(?!\d)",  # 230 without decimals (after * cleanup)
 )
 
@@ -144,7 +144,7 @@ _CARD_SLIP_TOTAL_LINE = re.compile(
 )
 
 _GRAND_TOTAL_RE = re.compile(
-    r"(?i)\bTOPLAM(?!\s*KDV)\b[^\d]{0,25}(\d{1,4}[.,]\d{2})",
+    r"(?i)\bTOPLAM(?!\s*KDV)\b[^\d]{0,25}(\d{1,4}[.,]\s*\d{2})",
 )
 
 _PHARMACY_RECEIPT_RE = re.compile(
@@ -189,6 +189,8 @@ _KDV_DAHIL_TOTAL_LINE = re.compile(
 def _clean_line_for_amounts(line: str) -> str:
     """Normalize Turkish receipt quirks before amount extraction."""
     line = re.sub(r"\*+", " ", line)
+    # OCR: "597, 95" — space between comma and kuruş
+    line = re.sub(r"(\d)([,.])\s+(\d{2})\b", r"\1\2\3", line)
     # OCR often reads leading * on amounts as digit 4 (TOP *230 -> TOP 4230).
     line = re.sub(
         r"(?i)((?:^|\b)(?:TOP|TOPLAM|TUTAR|NAK[Iİ]T|KRED[Iİ]|ÖDENECEK)\b\s*)4(\d{2,}(?:[.,]\d{2})?)",
@@ -375,21 +377,88 @@ def _line_total_priority(line: str) -> int:
     return 0
 
 
-def _parse_grand_total_blob(text: str) -> Optional[Decimal]:
-    match = _GRAND_TOTAL_RE.search(text)
-    if not match:
-        return None
-    return _normalize_amount_token(match.group(1))
+def _collect_grand_total_amounts(text: str) -> list[Decimal]:
+    found: list[Decimal] = []
+    for match in _GRAND_TOTAL_RE.finditer(text):
+        value = _normalize_amount_token(match.group(1))
+        if value is not None:
+            found.append(value)
+    return found
+
+
+def _looks_like_truncated_total(low: Decimal, high: Decimal) -> bool:
+    """OCR drops leading 4: TOPLAM 46,25 vs kart slip 446,25."""
+    if low <= 0 or high <= low or low >= Decimal("200"):
+        return False
+    if high < Decimal("100"):
+        return False
+    diff = high - low
+    if abs(diff - Decimal("400")) < Decimal("0.05"):
+        return True
+    if abs(diff - Decimal("40")) < Decimal("0.05") and high < Decimal("500"):
+        return True
+    ratio = high / low
+    return Decimal("8.5") <= ratio <= Decimal("10.5")
+
+
+def _reconcile_receipt_total(
+    amounts: list[Decimal],
+    *,
+    prefer: Optional[Decimal] = None,
+) -> Optional[Decimal]:
+    if not amounts:
+        return prefer
+    unique = list(dict.fromkeys(amounts))
+    if prefer is not None and prefer not in unique:
+        unique.append(prefer)
+    high = max(unique)
+    lows = [a for a in unique if a < high]
+    for low in lows:
+        if _looks_like_truncated_total(low, high):
+            return high
+    if prefer is not None and prefer >= high:
+        return prefer
+    if prefer is not None:
+        for low in lows:
+            if _looks_like_truncated_total(low, prefer):
+                return prefer
+    # Same total repeated on card slip + KDV table
+    if unique.count(high) >= 1:
+        matches = sum(1 for a in amounts if abs(a - high) < Decimal("0.01"))
+        if matches >= 2:
+            return high
+    return high if len(unique) == 1 else max(unique, key=lambda v: (amounts.count(v), v))
+
+
+def _sum_efatura_line_totals(lines: list[str]) -> Optional[Decimal]:
+    """E-arşiv: %01 189,00 gibi kalem sonu tutarları topla."""
+    item_amounts: list[Decimal] = []
+    for line in lines:
+        if _is_vat_or_subtotal_line(line) or not re.search(
+            r"%\s*\d{1,2}\b", line, re.IGNORECASE
+        ):
+            continue
+        values: list[Decimal] = []
+        for match in re.finditer(r"(\d{1,4}[.,]\s*\d{2})", line):
+            value = _normalize_amount_token(match.group(1))
+            if value is None or value >= Decimal("50000"):
+                continue
+            values.append(value)
+        if values:
+            item_amounts.append(values[-1])
+    if len(item_amounts) >= 2:
+        return sum(item_amounts)
+    return None
 
 
 def _sum_item_line_amounts(lines: list[str]) -> Optional[Decimal]:
     """Birden fazla Adet satırı varsa (eczane fişi) kalem tutarlarını topla."""
     item_amounts: list[Decimal] = []
     for line in lines:
-        if not re.search(r"adet|/adet", line, re.IGNORECASE):
+        if not re.search(r"adet|/adet|kilo", line, re.IGNORECASE):
             continue
         line_values: list[Decimal] = []
-        for match in re.finditer(r"(\d{1,4}[.,]\d{2})", line):
+        for match in re.finditer(r"(\d{1,4}[.,]\s*\d{2})", line):
             value = _normalize_amount_token(match.group(1))
             if value is None or value >= Decimal("50000"):
                 continue
@@ -418,7 +487,8 @@ def _parse_card_slip_total(lines: list[str]) -> Optional[Decimal]:
         else:
             continue
 
-        for token_match in re.finditer(r"(\d{1,4}[.,]\d{2})(?:\s*TL)?", line, re.IGNORECASE):
+        line_clean = _clean_line_for_amounts(line)
+        for token_match in re.finditer(r"(\d{1,4}[.,]\s*\d{2})(?:\s*TL)?", line_clean, re.IGNORECASE):
             value = _normalize_amount_token(token_match.group(1))
             if value is None or value >= Decimal("500000"):
                 continue
@@ -467,7 +537,8 @@ def _parse_pharmacy_user_paid(lines: list[str]) -> Optional[Decimal]:
         else:
             continue
 
-        for match in re.finditer(r"(\d{1,4}[.,]\d{2})(?:\s*TL)?", line, re.IGNORECASE):
+        line_clean = _clean_line_for_amounts(line)
+        for match in re.finditer(r"(\d{1,4}[.,]\s*\d{2})(?:\s*TL)?", line_clean, re.IGNORECASE):
             value = _normalize_amount_token(match.group(1))
             if value is None or value < Decimal("0.5") or value >= Decimal("500000"):
                 continue
@@ -507,9 +578,7 @@ def _parse_amount(lines: list[str]) -> Optional[Decimal]:
         if user_paid is not None:
             return user_paid
 
-    grand = _parse_grand_total_blob(blob)
-    if grand is not None:
-        return grand
+    grand_amounts = _collect_grand_total_amounts(blob)
 
     total_candidates: list[tuple[int, int, Decimal]] = []
     with_currency: list[Decimal] = []
@@ -547,16 +616,34 @@ def _parse_amount(lines: list[str]) -> Optional[Decimal]:
         if re.search(r"(?:TL|TRY|₺)\b", line, re.IGNORECASE) and not _is_vat_or_subtotal_line(line):
             with_currency.extend(amounts)
 
+    card_total = _parse_card_slip_total(lines)
+    item_total = _sum_item_line_amounts(lines)
+    if not item_total:
+        item_total = _sum_efatura_line_totals(lines)
+
+    reconcile_pool: list[Decimal] = list(grand_amounts)
+    if card_total is not None:
+        reconcile_pool.append(card_total)
+    if item_total is not None:
+        reconcile_pool.append(item_total)
+    if total_candidates:
+        reconcile_pool.extend(c[2] for c in total_candidates)
+
+    resolved = _reconcile_receipt_total(
+        reconcile_pool,
+        prefer=card_total or item_total,
+    )
+    if resolved is not None:
+        return resolved
+
     if total_candidates:
         total_candidates.sort(key=lambda item: (item[0], item[1]))
         return total_candidates[-1][2]
 
     if not _is_pharmacy_split_payment(lines):
-        item_total = _sum_item_line_amounts(lines)
         if item_total is not None:
             return item_total
 
-    card_total = _parse_card_slip_total(lines)
     if card_total is not None:
         return card_total
 
@@ -607,8 +694,15 @@ def _fix_ocr_year(year: int) -> int:
     return year
 
 
+def _normalize_year(year: int) -> int:
+    """DD/MM/YY on Turkish receipts → full year (26 → 2026)."""
+    if year < 100:
+        year = 2000 + year if year <= 50 else 1900 + year
+    return _fix_ocr_year(year)
+
+
 def _coerce_receipt_date(day: int, month: int, year: int) -> Optional[date]:
-    year = _fix_ocr_year(year)
+    year = _normalize_year(year)
     try:
         parsed = date(year, month, day)
     except ValueError:
@@ -620,34 +714,70 @@ def _coerce_receipt_date(day: int, month: int, year: int) -> Optional[date]:
     return parsed
 
 
-def _parse_date(lines: list[str]) -> Optional[date]:
-    text = "\n".join(lines)
+def _normalize_receipt_date_text(text: str) -> str:
+    """OCR: '25.05. 2026' → '25.05.2026' before pattern matching."""
     text = re.sub(r"(\d{2}),(\d{2})([.,/]\d{4})", r"\1.\2\3", text)
+    text = re.sub(r"(\d{2}[.,/]\d{2})[.\s,]+(\d{4})\b", r"\1.\2", text)
+    return text
 
+
+def _date_match_score(line: str, *, labeled_pattern: bool) -> int:
+    """Higher = prefer this date (TARIH header yes, POS slip no)."""
+    score = 100 if labeled_pattern else 25
+    lower = line.lower()
+    if re.search(r"tarih|tar\s*ih", lower):
+        score += 80
+    if re.search(r"saat", lower) and not re.search(
+        r"islem|isley|stan|batch|onay|provizyon|isyeri\s*no", lower
+    ):
+        score += 40
+    if re.search(
+        r"islem|isley|stan|batch|onay\s*kodu|provizyon|kart\s*no|"
+        r"isyeri\s*no|pos\s*no|sat[iı]s\s*$",
+        lower,
+    ):
+        score -= 90
+    return score
+
+
+def _parse_date_groups(groups: tuple[str, ...]) -> Optional[date]:
+    g = groups
+    try:
+        if len(g[0]) == 4:
+            return _coerce_receipt_date(int(g[2]), int(g[1]), int(g[0]))
+        return _coerce_receipt_date(int(g[0]), int(g[1]), int(g[2]))
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_date(lines: list[str]) -> Optional[date]:
     patterns: list[tuple[str, bool]] = [
-        (r"(?:tarih|tarl[iı]h|saat)[:\s]*(\d{2})[.,/](\d{2})[.,/](\d{4})", True),
-        (r"(\d{2})[.,/](\d{2})[.,/](\d{4})", False),
-        (r"(\d{4})[.,/](\d{2})[.,/](\d{2})", False),
+        (r"(?:tarih|tar\s*ih)\s*[:\s]*(\d{2})[.,/](\d{2})[.,/\s]*(\d{4})\b", True),
+        (r"(?:tarih|tar\s*ih)\s*[:\s]*(\d{2})[.,/](\d{2})[.,/](\d{2})\b", True),
+        (r"(\d{2})[.,/](\d{2})[.,/](\d{4})\b", False),
+        (r"(\d{2})[.,/](\d{2})[.,/](\d{2})\b", False),
+        (r"(\d{4})[.,/](\d{2})[.,/](\d{2})\b", False),
     ]
 
-    best: Optional[tuple[int, date]] = None
-    for pattern, labeled in patterns:
-        for match in re.finditer(pattern, text, re.IGNORECASE):
-            g = match.groups()
-            try:
-                if len(g[0]) == 4:
-                    parsed = _coerce_receipt_date(int(g[2]), int(g[1]), int(g[0]))
-                else:
-                    parsed = _coerce_receipt_date(int(g[0]), int(g[1]), int(g[2]))
-            except (ValueError, TypeError):
-                continue
-            if parsed is None:
-                continue
-            rank = (0 if labeled else 1, match.start())
-            if best is None or rank < best[0]:
-                best = (rank, parsed)
+    candidates: list[tuple[int, date]] = []
+    for line in lines:
+        line_norm = _normalize_receipt_date_text(line)
+        for pattern, labeled in patterns:
+            for match in re.finditer(pattern, line_norm, re.IGNORECASE):
+                parsed = _parse_date_groups(match.groups())
+                if parsed is None:
+                    continue
+                score = _date_match_score(line, labeled_pattern=labeled)
+                candidates.append((score, parsed))
 
-    return best[1] if best else None
+    if not candidates:
+        return None
+
+    max_score = max(s for s, _ in candidates)
+    top_dates = [d for s, d in candidates if s == max_score]
+    today = date.today()
+    # Aynı öncelikte birden fazla yıl varsa bugüne en yakın (genelde doğru fiş yılı)
+    return min(top_dates, key=lambda d: abs((today - d).days))
 
 
 _MERCHANT_SKIP = re.compile(
@@ -753,7 +883,31 @@ def _extract_pharmacy_label(line: str) -> Optional[str]:
     return None
 
 
+_CHAIN_MERCHANT_RE = re.compile(
+    r"\b(carrefoursa|carrefour\s*sa|parrefour|migros|bim|a101|sok\s*market|hakmar)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_chain_merchant(lines: list[str]) -> Optional[str]:
+    """Zincir adı fişin altında olabilir; banka başlığı yerine bunu kullan."""
+    for line in lines:
+        match = _CHAIN_MERCHANT_RE.search(line)
+        if match:
+            name = match.group(1)
+            if re.search(r"parrefour", name, re.I):
+                return "CarrefourSA"
+            if re.search(r"carrefour", name, re.I):
+                return "CarrefourSA"
+            return name.title()[:120]
+    return None
+
+
 def _parse_merchant(lines: list[str]) -> Optional[str]:
+    chain = _extract_chain_merchant(lines)
+    if chain:
+        return chain
+
     for line in lines[:10]:
         pharma = _extract_pharmacy_label(line)
         if pharma:
@@ -803,6 +957,15 @@ def parse_receipt_fields(raw_text: str, user_id: Optional[int] = None, db=None) 
     if user_id is not None and db is not None:
         from app.services.receipt_merchant_memory import lookup_category
 
+        from app.services.receipt_category import (
+            has_strong_food_signal,
+            has_strong_grocery_signal,
+        )
+
+        hay_norm = _normalize_for_keywords(raw_text)
+        grocery_signal = has_strong_grocery_signal(hay_norm, lines)
+        food_signal = has_strong_food_signal(hay_norm, merchant or "")
+
         memory_cat = lookup_category(db, user_id, raw_text, merchant)
         if memory_cat:
             keep_detected = (
@@ -810,6 +973,14 @@ def parse_receipt_fields(raw_text: str, user_id: Optional[int] = None, db=None) 
                 and category_name in ("Transport", "Health")
                 and memory_cat != category_name
             )
+            if grocery_signal and memory_cat == "Food":
+                keep_detected = True
+            if food_signal and memory_cat == "Groceries":
+                keep_detected = True
+            if category_name == "Groceries" and memory_cat == "Food":
+                keep_detected = True
+            if category_name == "Food" and memory_cat == "Groceries":
+                keep_detected = True
             if not keep_detected:
                 if category_name == "Food" and memory_cat == "Transport":
                     pass
@@ -818,6 +989,12 @@ def parse_receipt_fields(raw_text: str, user_id: Optional[int] = None, db=None) 
                 else:
                     category_name = memory_cat
                     category_source = "memory"
+        if food_signal and category_name != "Food":
+            category_name = "Food"
+            category_source = "keywords"
+        elif grocery_signal and category_name != "Groceries":
+            category_name = "Groceries"
+            category_source = "store"
 
     return {
         "raw_text": raw_text,

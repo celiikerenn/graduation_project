@@ -24,12 +24,20 @@ CATEGORY_PRIORITY: tuple[str, ...] = (
 # --- Step 1: units ---
 _GROCERY_UNIT_RE = re.compile(
     r"(?:"
-    r"(?:\d+[\s,.]?\d*)\s*(?:lt|ml|kg|gr|g|gram)\b|"
-    r"\b(?:lt|ml|kg|gr|g)\s*\d|"
+    r"(?:\d+[\s,.]?\d*)\s*(?:lt|ml|kg|gr|g|gram|kilo)\b|"
+    r"\b(?:lt|ml|kg|gr|g|kilo)\s*\d|"
+    r"tl\s*/\s*kilo|"
     r"\d+\s*(?:paket|kutu|sise|po[sş]et|rulo|top|torba)\b|"
     r"\d+\s*['\u2019]?\s*li\s+paket|"
     r"\bpaket\b"
     r")",
+    re.IGNORECASE,
+)
+
+_DAIRY_SHOP_RE = re.compile(r"\bsut\s*mamul", re.IGNORECASE)
+
+_GROCERY_STAPLE_RE = re.compile(
+    r"\b(?:zeytin|peynir|kasar|lor|tereyag|yogurt|ayran)\b",
     re.IGNORECASE,
 )
 
@@ -50,15 +58,34 @@ _PACKAGED_PRODUCT_RE = re.compile(
 )
 
 _FOOD_PRODUCT_LINE_RE = re.compile(
-    r"\b(?:tatli|yiyecek|icecek|kebap|kebapci|pide|lahmacun|pizza|doner|döner|"
+    r"\b(?:tatli|yiy?ecek|icecek|kebap|kebapci|pide|lahmacun|pizza|doner|döner|"
     r"corba|pilav|makarna|kofte|iskender|borek|waffle|dondurma|"
-    r"sutlac|kunefe|baklava|sandvic|tost|durum|petifur|petit|bardak|cay|kahve)\b",
+    r"sutlac|kunefe|baklava|sandvic|tost|durum|petifur|petit|bardak|cay|kahve|"
+    r"chocolate|cikolata|sarayi|hamburger|burger|patates|menu)\b",
+    re.IGNORECASE,
+)
+
+_FAST_FOOD_RE = re.compile(
+    r"\b(?:hamburger|burger|kizilkayalar|bufe|bistro|fast\s*food|"
+    r"mcdonald|burger\s*king|komagene|dominos|pizza\s*hut)\b",
+    re.IGNORECASE,
+)
+
+# Turkish fiscal line: YİYECEK %10 (not supermarket discount "%2,00")
+_FOOD_SERVICE_LINE_RE = re.compile(
+    r"\b(?:yiy?ecek|icecek)\s*%?\s*\d",
+    re.IGNORECASE,
+)
+
+_SUPERMARKET_CHAIN_RE = re.compile(
+    r"\b(?:migros|bim|a101|sok|carrefour|carrefoursa|parrefour|hakmar|makro|kiler|file\s*market)\b",
     re.IGNORECASE,
 )
 
 _RESTAURANT_HEADER_RE = re.compile(
-    r"(?:kebapci|kebap|restoran|lokanta|cafe|kafeterya|bistro|yiyecek|pastane|"
-    r"firin|sut\s*mamul|tatli|doner|döner|pide|lahmacun)",
+    r"(?:kebapci|kebap|restoran|rest\.?\s*hiz|lokanta|cafe|kafeterya|bistro|"
+    r"yiy?ecek|pastane|firin|doner|döner|pide|lahmacun|"
+    r"chocolate|cikolata|sarayi|hamburger|burger|kizilkayalar|bufe)",
     re.IGNORECASE,
 )
 
@@ -99,7 +126,7 @@ _CORPORATE_LINE_RE = re.compile(
 )
 
 _STORE_GROCERIES_RE = re.compile(
-    r"\b(?:migros|bim|a101|sok|carrefour|hakmar|makro|kiler|file|"
+    r"\b(?:migros|bim|a101|sok|carrefour|carrefoursa|parrefour|hakmar|makro|kiler|file|"
     r"supermarket|market|manav|kasap)\b",
     re.IGNORECASE,
 )
@@ -116,10 +143,12 @@ _KEYWORDS: dict[str, tuple[str, ...]] = {
         "dondurma", "sandvic", "tost", "durum", "kokorec", "balik ekmek", "tabak",
         "porsiyon", "servis", "siparis", "yiyecek", "icecek", "tatli", "pastane",
         "firin", "sut mamul", "sut mamulleri", "unlu mamul", "lokanta",
+        "chocolate", "cikolata", "sarayi", "cikolata sarayi",
+        "hamburger", "burger", "kizilkayalar", "bufe", "menu",
     ),
     "Groceries": (
         "market", "supermarket", "manav", "kasap", "migros", "bim", "a101", "sok",
-        "carrefour", "hakmar", "makro", "kiler", "file", "yogurt", "kefir", "peynir",
+        "carrefour", "hakmar", "makro", "kiler", "file", "zeytin", "yogurt", "kefir", "peynir",
         "kasar", "beyaz peynir", "lor", "labne", "tereyagi", "krema", "yumurta",
         "tavuk but", "kiyma", "dana", "kuzu", "sucuk", "salam", "sosis", "pastirma",
         "ekmek", "lavas", "tortilla", "pirinç", "pirinc", "bulgur", "un", "irmik",
@@ -183,8 +212,45 @@ def normalize_text(text: str) -> str:
     t = (text or "").lower()
     t = t.replace("ı", "i").replace("İ", "i").replace("ş", "s").replace("ğ", "g")
     t = t.replace("ö", "o").replace("ü", "u").replace("ç", "c")
+    # OCR often reads YİYECEK as YIYECEK (single i)
+    t = re.sub(r"\byiyecek\b", "yiyecek", t)
+    t = re.sub(r"\bparrefour\b", "carrefour", t)
+    t = re.sub(r"\bcarrefoursa\b", "carrefour", t)
     t = re.sub(r"\s+", " ", t)
     return t.strip()
+
+
+def has_strong_food_signal(text: str, merchant: str = "") -> bool:
+    """Restoran / büfe / fast-food — Groceries veya gida hafızası ezmesin."""
+    blob = f"{text} {normalize_text(merchant)}"
+    if _FAST_FOOD_RE.search(blob) or _RESTAURANT_HEADER_RE.search(blob):
+        return True
+    if _FOOD_SERVICE_LINE_RE.search(blob):
+        return True
+    if re.search(
+        r"hamburger|burger|kizilkayalar|bufe|kebap|doner|pide|lahmacun|"
+        r"restoran|lokanta|yiy?ecek",
+        blob,
+    ):
+        return True
+    return False
+
+
+def has_strong_grocery_signal(text: str, lines: Optional[list[str]] = None) -> bool:
+    """Market zinciri veya tipik süpermarket fişi — Food/hafıza ezmesin."""
+    if _SUPERMARKET_CHAIN_RE.search(text) or _STORE_GROCERIES_RE.search(text):
+        return True
+    if re.search(r"carrefoursa\s+kart|csa\s+kart", text):
+        return True
+    lines = lines or []
+    if _is_supermarket_receipt(text, lines):
+        return True
+    kg_lines = sum(
+        1 for ln in lines if re.search(r"\d+[.,]?\d*\s*kg\b", normalize_text(ln), re.IGNORECASE)
+    )
+    if kg_lines >= 1 and re.search(r"\b(?:parrefour|carrefour|un|ceviz|deterjan)\b", text):
+        return True
+    return False
 
 
 def _keyword_in_text(keyword: str, haystack: str) -> bool:
@@ -218,6 +284,15 @@ def _classify_line_by_unit(line: str) -> Optional[str]:
         return "Food"
 
     if _PACKAGED_PRODUCT_RE.search(norm) or _GROCERY_UNIT_RE.search(norm):
+        return "Groceries"
+
+    if _GROCERY_STAPLE_RE.search(norm):
+        return "Groceries"
+
+    if re.search(r"\bsut\b", norm) and re.search(
+        r"\d+\s*(?:lt|ml)|\d\s*l\b|3lt|/\s*adet|adet\s*x",
+        norm,
+    ):
         return "Groceries"
 
     if _ADET_LINE_RE.search(norm):
@@ -283,14 +358,70 @@ def _tier1_health(text: str) -> bool:
     return bool(_HEALTH_STRONG_RE.search(text))
 
 
+def _classify_dairy_shop(lines: list[str], text: str) -> Optional[str]:
+    """Süt mamülleri dükkanı: paket süt/zeytin → Groceries; hazır tatlı (adet) → Food."""
+    if not _DAIRY_SHOP_RE.search(text):
+        return None
+    has_adet_pricing = any(
+        _MENU_ADET_PRICE_RE.search(ln) or _ADET_LINE_RE.search(ln) for ln in lines
+    )
+    food_items = 0
+    grocery_items = 0
+    for line in lines:
+        if not _line_looks_like_product(line):
+            continue
+        norm = normalize_text(line)
+        if re.search(r"\btatli\b", norm) and (
+            _ADET_LINE_RE.search(norm)
+            or _MENU_ADET_PRICE_RE.search(norm)
+            or re.search(r"\badet\b", norm)
+            or has_adet_pricing
+        ):
+            food_items += 1
+            continue
+        if _GROCERY_STAPLE_RE.search(norm) or re.search(r"kilo\b", norm, re.IGNORECASE):
+            grocery_items += 1
+            continue
+        if re.search(r"\bsut\b", norm):
+            grocery_items += 1
+    if food_items > 0 and grocery_items == 0:
+        return "Food"
+    if grocery_items > 0:
+        return "Groceries"
+    return None
+
+
+def _is_supermarket_receipt(text: str, lines: list[str]) -> bool:
+    if _SUPERMARKET_CHAIN_RE.search(text):
+        return True
+    if re.search(r"carrefoursa\s+kart|csa\s+kart", text):
+        return True
+    kg_lines = sum(
+        1 for ln in lines if re.search(r"\d+[.,]?\d*\s*kg\b", normalize_text(ln), re.IGNORECASE)
+    )
+    if kg_lines >= 1 and re.search(r"\b(?:parrefour|carrefour|un|ceviz|deterjan|sut)\b", text):
+        return True
+    if kg_lines >= 2 and re.search(r"\b(?:un|ceviz|yogurt|deterjan|sut)\b", text):
+        return True
+    return False
+
+
 def _is_restaurant_receipt(text: str, header: str, lines: list[str]) -> bool:
     """Restoran / kafe / kebapçı fişi — adet satırları market sayılmasın."""
+    if _SUPERMARKET_CHAIN_RE.search(text) or _STORE_GROCERIES_RE.search(text):
+        return False
     if _STORE_GROCERIES_RE.search(header):
         return False
     if _RESTAURANT_HEADER_RE.search(header):
         return True
     blob = normalize_text("\n".join(lines))
-    if _RESTAURANT_ITEM_RE.search(blob) or re.search(r"\byiyecek\b", blob):
+    if (
+        _RESTAURANT_ITEM_RE.search(blob)
+        or re.search(r"\byiy?ecek\b", blob)
+        or _FOOD_SERVICE_LINE_RE.search(blob)
+    ):
+        return True
+    if re.search(r"\bchocolate\b", blob) and re.search(r"\bsarayi\b", blob):
         return True
     menu_lines = sum(
         1
@@ -302,9 +433,9 @@ def _is_restaurant_receipt(text: str, header: str, lines: list[str]) -> bool:
     return False
 
 
-def _store_category(header: str, merchant: str) -> Optional[str]:
-    blob = f"{header} {merchant}"
-    if _STORE_GROCERIES_RE.search(blob):
+def _store_category(header: str, merchant: str, full_text: str = "") -> Optional[str]:
+    blob = f"{header} {merchant} {full_text}"
+    if _STORE_GROCERIES_RE.search(blob) or _SUPERMARKET_CHAIN_RE.search(blob):
         return "Groceries"
     if _FUEL_STATION_RE.search(blob) and not _has_corporate_petrol_only(blob):
         return "Transport"
@@ -330,9 +461,18 @@ def _score_keywords(text: str, lines: list[str], merchant: str) -> dict[str, int
                 if _keyword_in_text(kw, ln):
                     scores[category] += 1
 
-    # Süt mamulleri / tatlı shop names
-    if re.search(r"sut\s*mamul|tatli|pastane|firin", header):
+    if re.search(r"tatli|pastane|firin", header) and not _DAIRY_SHOP_RE.search(header):
         scores["Food"] += 4
+    if _DAIRY_SHOP_RE.search(header):
+        has_tatli_items = any(
+            re.search(r"\btatli\b", normalize_text(ln)) and _ADET_LINE_RE.search(normalize_text(ln))
+            for ln in lines
+            if _line_looks_like_product(ln)
+        )
+        if has_tatli_items:
+            scores["Food"] += 4
+        else:
+            scores["Groceries"] += 3
 
     return scores
 
@@ -373,10 +513,25 @@ def detect_receipt_category(
     if _tier1_health(text):
         return "Health", "priority"
 
-    restaurant = _is_restaurant_receipt(text, header, lines)
+    if _FAST_FOOD_RE.search(f"{header} {merchant_norm} {text}"):
+        return "Food", "keywords"
 
-    # Store name hints (before units, after tier1)
-    store = _store_category(header, merchant_norm)
+    if _is_supermarket_receipt(text, lines):
+        return "Groceries", "store"
+
+    dairy = _classify_dairy_shop(lines, text)
+    if dairy:
+        return dairy, "unit"
+
+    restaurant = _is_restaurant_receipt(text, header, lines)
+    if not restaurant and re.search(r"\bchocolate\b", f"{header} {merchant_norm}"):
+        if not _SUPERMARKET_CHAIN_RE.search(text):
+            restaurant = True
+    if not restaurant and _FOOD_SERVICE_LINE_RE.search(text):
+        restaurant = True
+
+    # Store name hints (before units, after tier1) — chain name may be at bottom of receipt
+    store = _store_category(header, merchant_norm, text)
     if store == "Groceries" and not _FOOD_PRODUCT_LINE_RE.search(header):
         return "Groceries", "store"
     if store == "Transport":
@@ -384,11 +539,16 @@ def detect_receipt_category(
     if store == "Health":
         return "Health", "store"
 
+    unit_scores = _score_units(lines)
+
+    if restaurant and unit_scores["Groceries"] > unit_scores["Food"]:
+        if _SUPERMARKET_CHAIN_RE.search(text) or unit_scores["Groceries"] >= 2:
+            restaurant = False
+
     if restaurant:
         return "Food", "keywords"
 
     # Step 1 — units on product lines (lt/kg/paket → market; menü adet → yemek)
-    unit_scores = _score_units(lines)
     g, f = unit_scores["Groceries"], unit_scores["Food"]
     if g > 0 or f > 0:
         if f > g:
@@ -404,7 +564,7 @@ def detect_receipt_category(
     kw_scores = _score_keywords(text, lines, merchant_norm)
 
     if _RESTAURANT_HEADER_RE.search(header) or re.search(
-        r"kebap|restoran|lokanta|sut\s*mamul", header
+        r"kebap|restoran|rest\.?\s*hiz|lokanta|chocolate|sarayi", header
     ):
         kw_scores["Food"] += 8
 
@@ -414,5 +574,8 @@ def detect_receipt_category(
     winner = _pick_by_priority(kw_scores, prefer_food_over_groceries=restaurant)
     if winner:
         return winner, "keywords"
+
+    if has_strong_food_signal(text, merchant_norm):
+        return "Food", "keywords"
 
     return None, "none"

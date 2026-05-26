@@ -70,10 +70,20 @@ _BUSINESS_TRIGGERS: tuple[tuple[str, str], ...] = (
     ("sut mamul", "Food"),
     ("sut mamulleri", "Food"),
     ("tatli", "Food"),
+    ("chocolate", "Food"),
+    ("cikolata", "Food"),
+    ("sarayi", "Food"),
+    ("yiyecek", "Food"),
+    ("hamburger", "Food"),
+    ("burger", "Food"),
+    ("kizilkayalar", "Food"),
+    ("bufe", "Food"),
     ("migros", "Groceries"),
     ("bim", "Groceries"),
     ("a101", "Groceries"),
     ("carrefour", "Groceries"),
+    ("carrefoursa", "Groceries"),
+    ("parrefour", "Groceries"),
     ("market", "Groceries"),
     ("ispark", "Transport"),
     ("otopark", "Transport"),
@@ -101,6 +111,48 @@ _BLOCKED_MEMORY_KEYWORDS = frozenset(
         "gida",
         "ins",
         "kuy",
+        "spbanci",
+        "sabanci",
+        "ziraat",
+        "garanti",
+        "bankasi",
+        "bankas",
+        "bank",
+        "isyeri",
+        "pos",
+        "provizyon",
+        "tek",
+        "mrkezi",
+    }
+)
+
+_FOOD_CHAIN_TRIGGERS = frozenset(
+    {
+        "hamburger",
+        "burger",
+        "kizilkayalar",
+        "bufe",
+        "kebap",
+        "doner",
+        "lahmacun",
+        "pide",
+        "restoran",
+        "lokanta",
+    }
+)
+
+_GROCERY_CHAIN_TRIGGERS = frozenset(
+    {
+        "migros",
+        "bim",
+        "a101",
+        "carrefour",
+        "carrefoursa",
+        "parrefour",
+        "hakmar",
+        "makro",
+        "sok",
+        "kiler",
     }
 )
 
@@ -109,6 +161,8 @@ def normalize_haystack(text: str) -> str:
     t = (text or "").lower()
     t = t.replace("ı", "i").replace("İ", "i").replace("ş", "s").replace("ğ", "g")
     t = t.replace("ö", "o").replace("ü", "u").replace("ç", "c")
+    t = re.sub(r"\bparrefour\b", "carrefour", t)
+    t = re.sub(r"\bcarrefoursa\b", "carrefour", t)
     t = re.sub(r"\s+", " ", t)
     return t.strip()
 
@@ -179,6 +233,8 @@ def extract_learn_keywords(
     for line in (raw_text or "").splitlines()[:3]:
         line = line.strip()
         if 4 <= len(line) <= 60 and sum(c.isalpha() for c in line) >= len(line) * 0.4:
+            if re.search(r"bank|ziraat|garanti|spbanci|sabanci|pos|isyeri", line, re.I):
+                continue
             for token in _token_keywords(line, min_len=5):
                 if token in _BLOCKED_MEMORY_KEYWORDS:
                     continue
@@ -202,6 +258,17 @@ def lookup_category(
     if not haystack.strip():
         return None
 
+    for trigger in _FOOD_CHAIN_TRIGGERS:
+        if trigger in haystack:
+            return "Food"
+
+    if _haystack_has_food_signal(haystack):
+        return "Food"
+
+    for trigger in _GROCERY_CHAIN_TRIGGERS:
+        if trigger in haystack:
+            return "Groceries"
+
     rules = (
         db.query(ReceiptMerchantMemory)
         .filter(ReceiptMerchantMemory.user_id == user_id)
@@ -221,17 +288,35 @@ def lookup_category(
         if kw in haystack:
             if rule.category_name == "Transport" and _haystack_has_food_signal(haystack):
                 continue
+            if rule.category_name == "Food" and _haystack_has_grocery_signal(haystack):
+                continue
+            if rule.category_name == "Groceries" and _haystack_has_food_signal(haystack):
+                continue
             if rule.category_name != "Health" and _haystack_has_health_signal(haystack):
                 continue
             return rule.category_name
     return None
 
 
+def _haystack_has_grocery_signal(haystack: str) -> bool:
+    if any(t in haystack for t in _GROCERY_CHAIN_TRIGGERS):
+        return True
+    if re.search(r"carrefoursa\s+kart|csa\s+kart", haystack):
+        return True
+    if re.search(r"parrefour|carrefour", haystack):
+        return True
+    kg = re.search(r"\d+[.,]?\d*\s*kg\b", haystack)
+    if kg and re.search(r"\b(?:un|ceviz|deterjan|sut)\b", haystack):
+        return True
+    return False
+
+
 def _haystack_has_food_signal(haystack: str) -> bool:
     return bool(
         re.search(
-            r"kebap|kebab|restoran|lokanta|yiyecek|icecek|pastane|firin|pide|doner|döner|"
-            r"sut mamul|tatli|dondurma",
+            r"kebap|kebab|restoran|rest\.?\s*hiz|lokanta|yiy?ecek|icecek|pastane|firin|"
+            r"pide|doner|döner|chocolate|cikolata|sarayi|"
+            r"sut mamul|tatli|dondurma|hamburger|burger|kizilkayalar|bufe|bistro",
             haystack,
         )
     )

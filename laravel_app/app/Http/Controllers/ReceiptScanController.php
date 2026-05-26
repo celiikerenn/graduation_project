@@ -114,8 +114,8 @@ class ReceiptScanController extends Controller
             $request->session()->forget(['receipt_scan', 'receipt_scan_preview']);
 
             return redirect()
-                ->route('expenses.index')
-                ->with('success', 'Expense saved from receipt scan.');
+                ->route('expenses.receipt-scan')
+                ->with('success', 'Expense saved. You can scan another receipt.');
         } catch (\Throwable $e) {
             return redirect()
                 ->route('expenses.receipt-scan')

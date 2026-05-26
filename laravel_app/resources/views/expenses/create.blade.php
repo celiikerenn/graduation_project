@@ -69,7 +69,7 @@
                 </div>
             </div>
             <div style="margin:0; color:var(--muted); font-size:0.85rem;">
-                Fixed templates are managed from <a href="{{ route('profile.show') }}" style="color:var(--acc); font-weight:600; text-decoration:underline;">Settings</a>.
+                Fixed templates are managed from <a href="{{ route('profile.preferences') }}" style="color:var(--acc); font-weight:600; text-decoration:underline;">Settings → Budget &amp; preferences</a>.
             </div>
         </div>
         <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">

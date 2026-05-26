@@ -19,7 +19,7 @@ class PageInsights
             return [
                 self::card(
                     'Photo tip',
-                    'Use a clear, well-lit photo. Turkish receipts work best with the total (TOPLAM) visible.',
+                    'Use a clear, well-lit photo so the receipt is easy to read.',
                     'bulb',
                     'amber',
                 ),

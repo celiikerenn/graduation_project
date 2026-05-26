@@ -35,6 +35,7 @@ class DashboardController extends Controller
         $perMonthPage = 12;
         $monthTotalPages = 1;
         $monthTotalCount = 0;
+
         try {
             $monthly = $this->api->getMonthlyTotal($userId, $now->year, $now->month);
 
@@ -50,6 +51,7 @@ class DashboardController extends Controller
                 $date = Carbon::parse($expense['expense_date']);
                 $key = $date->format('Y-m');
                 $amount = (float) ($expense['amount'] ?? 0);
+
                 if (!isset($byMonth[$key])) {
                     $byMonth[$key] = [
                         'year'   => $date->year,
@@ -58,6 +60,7 @@ class DashboardController extends Controller
                         'count'  => 0,
                     ];
                 }
+
                 $byMonth[$key]['total'] += $amount;
                 $byMonth[$key]['count'] += 1;
             }

@@ -1,14 +1,15 @@
 @extends('layouts.app')
 
-@section('title', 'Profile & Settings')
+@section('title', 'Budget & Preferences')
 
 @push('styles')
+@include('profile.partials.settings-subnav-styles')
 <style>
     .settings-layout {
         display: grid;
         grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
         gap: 1rem;
-        margin-top: 1rem;
+        margin-top: 0;
         align-items: start;
     }
     .settings-layout__stack {
@@ -17,16 +18,20 @@
         gap: 1rem;
         min-width: 0;
     }
+    .settings-panel--fixed {
+        align-self: start;
+    }
+    #fixed-template-rows:empty {
+        display: none;
+    }
+    .settings-panel--fixed .settings-panel__actions {
+        margin-top: 0.25rem;
+    }
     .settings-panel h2 {
         margin-top: 0;
         margin-bottom: 0.75rem;
         font-size: 1.05rem;
         color: var(--txt);
-    }
-    .settings-panel .form-group > div:not(.text-danger) {
-        color: var(--txt);
-        font-weight: 500;
-        font-size: 0.95rem;
     }
     .settings-panel__hint {
         margin-top: 0;
@@ -35,9 +40,6 @@
         font-size: 0.9rem;
         font-weight: 500;
         line-height: 1.45;
-    }
-    .settings-panel--fixed {
-        min-height: 100%;
     }
     .settings-panel--fixed h2 {
         font-size: 1.15rem;
@@ -168,80 +170,17 @@
         color: var(--txt2);
         line-height: 1.45;
     }
-    .notification-settings .btn {
-        width: 100%;
-        max-width: 16rem;
-    }
 </style>
 @endpush
 
 @section('content')
-<h1>Profile &amp; Settings</h1>
-
-<div class="card" style="display:flex; flex-wrap:wrap; gap:1.5rem; align-items:flex-start;">
-    <div style="flex:1 1 260px; min-width:240px;">
-        <h2 style="margin-top:0; margin-bottom:0.75rem;">Account Info</h2>
-        <div class="form-group">
-            <label>Name</label>
-            <div>{{ $name }}</div>
-        </div>
-        <div class="form-group">
-            <label>Email</label>
-            <div>{{ $email }}</div>
-        </div>
-    </div>
-
-    <div style="flex:1 1 260px; min-width:260px;">
-        <h2 style="margin-top:0; margin-bottom:0.75rem;">Change Password</h2>
-        <form method="POST" action="{{ route('profile.change-password.update') }}">
-            @csrf
-            <div class="form-group">
-                <label for="current_password">Current Password</label>
-                <input
-                    type="password"
-                    id="current_password"
-                    name="current_password"
-                    required
-                >
-                @error('current_password')
-                    <div class="text-danger">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div class="form-group">
-                <label for="new_password">New Password</label>
-                <input
-                    type="password"
-                    id="new_password"
-                    name="new_password"
-                    required
-                >
-                @error('new_password')
-                    <div class="text-danger">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div class="form-group">
-                <label for="new_password_confirmation">Confirm New Password</label>
-                <input
-                    type="password"
-                    id="new_password_confirmation"
-                    name="new_password_confirmation"
-                    required
-                >
-            </div>
-
-            <button type="submit" class="btn btn-primary">
-                Change Password
-            </button>
-        </form>
-    </div>
-</div>
+<h1>Settings</h1>
+@include('profile.partials.settings-nav')
 
 <div class="settings-layout">
     <div class="settings-layout__stack">
         <div class="card settings-panel" id="monthly-budget">
-            <h2>Monthly Budget</h2>
+            <h2>Monthly budget</h2>
             <p class="settings-panel__hint">
                 Used on the dashboard for budget usage tracking.
             </p>
@@ -265,7 +204,7 @@
             </form>
         </div>
 
-        <div class="card settings-panel">
+        <div class="card settings-panel settings-panel--preferences">
             <h2>Preferences</h2>
             <form method="POST" action="{{ route('profile.currency.update') }}">
                 @csrf
@@ -305,9 +244,9 @@
     </div>
 
     <div class="card settings-panel settings-panel--fixed">
-        <h2>Monthly Fixed Expenses</h2>
+        <h2>Monthly fixed expenses</h2>
         <p class="settings-panel__hint">
-            Template rows for the "Add this month's fixed expenses" button on Add Expense.
+            Template rows for the &quot;Add this month&apos;s fixed expenses&quot; button on Add Expense.
         </p>
         <form method="POST" action="{{ route('profile.fixed-monthly.templates.update') }}">
         @csrf
@@ -327,11 +266,13 @@
                 </div>
             @endforeach
         </div>
-        <button type="button" id="add-fixed-template-row" class="btn btn-secondary" style="margin-bottom:0.65rem;">+ Add Row</button>
-        @error('amount')
-            <div class="text-danger" style="margin-bottom:0.5rem;">{{ $message }}</div>
-        @enderror
-        <button type="submit" class="btn btn-primary">Save templates</button>
+        <div class="settings-panel__actions">
+            <button type="button" id="add-fixed-template-row" class="btn btn-secondary" style="margin-bottom:0.65rem;">+ Add row</button>
+            @error('amount')
+                <div class="text-danger" style="margin-bottom:0.5rem;">{{ $message }}</div>
+            @enderror
+            <button type="submit" class="btn btn-primary">Save templates</button>
+        </div>
         </form>
     </div>
 </div>
@@ -461,4 +402,3 @@
 })();
 </script>
 @endpush
-

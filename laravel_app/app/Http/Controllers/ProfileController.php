@@ -35,14 +35,33 @@ class ProfileController extends Controller
             // API down ise profile yine açılsın
         }
 
-        return view('profile', [
-            'name'           => $request->session()->get('user_name'),
-            'email'          => $request->session()->get('user_email'),
-            'categories'     => $categories,
+        return view('profile.account', [
+            'name'  => $request->session()->get('user_name'),
+            'email' => $request->session()->get('user_email'),
+        ]);
+    }
+
+    public function showPreferences(Request $request): View|RedirectResponse
+    {
+        $userId = $request->session()->get('user_id');
+        if (!$userId) {
+            return redirect()->route('login');
+        }
+
+        $categories = [];
+        try {
+            $categories = $this->api->listCategories();
+        } catch (\Throwable $e) {
+            // API down ise sayfa yine açılsın
+        }
+
+        return view('profile.preferences', [
+            'categories'         => $categories,
             'emailNotifications' => (bool) $request->session()->get('email_notifications', true),
-            'fixedTemplates' => $request->session()->get('fixed_expense_templates', $this->defaultFixedTemplates()),
-            'currency'       => Currency::normalize(session('currency')),
-            'monthlyBudget'  => (float) $request->session()->get('monthly_budget', 0),
+            'fixedTemplates'     => $request->session()->get('fixed_expense_templates', $this->defaultFixedTemplates()),
+            'currency'           => Currency::normalize(session('currency')),
+            'monthlyBudget'      => (float) $request->session()->get('monthly_budget', 0),
+            'currencySymbol'     => Currency::symbol(Currency::normalize(session('currency'))),
         ]);
     }
 
@@ -66,22 +85,18 @@ class ProfileController extends Controller
         $request->session()->put('monthly_budget', $monthlyBudget);
 
         return redirect()
-            ->route('profile.show')
+            ->to(route('profile.preferences') . '#monthly-budget')
             ->with('success', 'Monthly budget saved.');
     }
 
-    public function showBudget(Request $request): View|RedirectResponse
+    public function showBudget(Request $request): RedirectResponse
     {
         $userId = $request->session()->get('user_id');
         if (!$userId) {
             return redirect()->route('login');
         }
 
-        $monthlyBudget = (float) ($request->session()->get('monthly_budget', 0));
-
-        return view('profile.budget', [
-            'monthlyBudget' => $monthlyBudget,
-        ]);
+        return redirect()->to(route('profile.preferences') . '#monthly-budget');
     }
 
     public function changePassword(Request $request)
@@ -144,7 +159,7 @@ class ProfileController extends Controller
         }
 
         $request->session()->put('fixed_expense_templates', $cleaned);
-        return redirect()->route('profile.show')->with('success', 'Monthly fixed expense templates updated.');
+        return redirect()->route('profile.preferences')->with('success', 'Monthly fixed expense templates updated.');
     }
 
     public function updateCurrency(Request $request): RedirectResponse
@@ -165,7 +180,7 @@ class ProfileController extends Controller
         }
         $request->session()->put('currency', $code);
 
-        return redirect()->route('profile.show')->with('success', 'Currency preference saved.');
+        return redirect()->route('profile.preferences')->with('success', 'Currency preference saved.');
     }
 
     public function updateEmailNotifications(Request $request): RedirectResponse|JsonResponse
@@ -203,7 +218,7 @@ class ProfileController extends Controller
             ]);
         }
 
-        return redirect()->route('profile.show')->with('success', $message);
+        return redirect()->route('profile.preferences')->with('success', $message);
     }
 }
 
